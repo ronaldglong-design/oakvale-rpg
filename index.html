@@ -49,7 +49,7 @@ button{cursor:pointer;background:#e9c76b;color:#1d2431;border:0;border-radius:7p
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
 const W=960,H=540,worldW=4800,ground=438;
 let keys={},cam=0,dialog=null,toastTimer=0,toastText='',last=0;
-let player={x:110,y:ground-48,w:28,h:48,vx:0,vy:0,face:1,hp:100,maxhp:100,level:1,xp:0,gold:10,atk:12,blocking:false,attack:0,special:0,invuln:0,potions:2,dropTimer:0};
+let player={x:110,y:ground-48,w:28,h:48,vx:0,vy:0,face:1,hp:100,maxhp:100,level:1,xp:0,gold:10,atk:12,blocking:false,attack:0,special:0,invuln:0,potions:2,mushrooms:0,dropTimer:0};
 let quest={stage:0,slimes:0,mushrooms:0,caveBoss:false,batsStarted:false,bats:0,batsDone:false,herbsStarted:false,herbs:0,herbsDone:false};
 // Walkable raised platforms across town, woods, and cave. Coordinates use world space.
 const platforms=[
@@ -123,7 +123,7 @@ function drawWorld(){
  // entrances
  drawDoor(1080,'Forest Entrance','#6e4b30');drawDoor(2650,'Cave Entrance','#39434d');
  // NPCs
- for(const n of npcs){let x=n.x-cam;if(x<-40||x>W+40)continue;drawPerson(x,ground-42,n.color);text(n.name,x-25,ground-56,'#172b3c','bold 11px system-ui');text('E',x-4,ground-68,'#fff2a5','bold 12px system-ui')}
+ for(const n of npcs){let x=n.x-cam;if(x<-40||x>W+40)continue;drawPerson(x,ground-42,n.color);let nearby=Math.abs(n.x-(player.x+player.w/2))<100;if(nearby)drawNpcBubble(x,ground-58,n.name)}
  // signs
  signs.forEach(s=>{let x=s.x-cam;if(x<-40||x>W+40)return;rect(x-3,ground-48,6,48,'#6e4b30');rect(x-35,ground-60,90,24,'#cba76c');text(s.text,x-31,ground-44,'#332b21','10px system-ui')});
  // chests
@@ -136,6 +136,12 @@ function drawWorld(){
 }
 function drawDoor(wx,label,color){let x=wx-cam;if(x<-80||x>W+80)return;rect(x-24,ground-80,48,80,color);ctx.fillStyle='#2b343d';ctx.beginPath();ctx.arc(x,ground-80,24,Math.PI,0);ctx.fill();text(label,x-42,ground-91,'#172b3c','bold 11px system-ui')}
 function drawPerson(x,y,color){rect(x-10,y+12,20,28,color);rect(x-9,y,18,17,'#edbd91');rect(x-11,y-3,22,7,'#634532');rect(x-8,y+40,7,5,'#463e3a');rect(x+2,y+40,7,5,'#463e3a')}
+function drawNpcBubble(x,y,label){
+ const caption=label+'  ·  E';ctx.font='bold 12px system-ui';const w=Math.max(70,ctx.measureText(caption).width+18),h=25;let bx=Math.max(5,Math.min(W-w-5,x-w/2)),by=y-h-8;
+ ctx.fillStyle='#ffffff';ctx.strokeStyle='#26394b';ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect(bx,by,w,h,7);ctx.fill();ctx.stroke();
+ ctx.beginPath();ctx.moveTo(x-5,by+h);ctx.lineTo(x+2,by+h);ctx.lineTo(x,by+h+7);ctx.closePath();ctx.fillStyle='#ffffff';ctx.fill();ctx.strokeStyle='#26394b';ctx.beginPath();ctx.moveTo(x-5,by+h);ctx.lineTo(x,by+h+7);ctx.lineTo(x+2,by+h);ctx.stroke();
+ ctx.fillStyle='#1e2b38';ctx.textAlign='center';ctx.fillText(caption,bx+w/2,by+16.5);ctx.textAlign='left';
+}
 function drawPlayer(){
  let x=player.x-cam,y=player.y;
  // shadow
@@ -209,7 +215,7 @@ function interact(){
  if(dialog){closeDialog();return}
  const n=npcs.find(n=>Math.abs(n.x-(player.x+player.w/2))<65);
  if(n){
-  if(n.role==='herbquest'){if(!quest.herbsStarted){quest.herbsStarted=true;say(n.name,'The forest glows with moon-mushrooms. Please gather four for my remedies. Look for the little purple caps along the forest floor and press E beside them.')}else if(quest.herbs>=4&&!quest.herbsDone){quest.herbsDone=true;player.gold+=25;player.xp+=20;player.potions++;say(n.name,'Wonderful! These will help the whole town. Here is 25 gold, some experience, and a health potion.')}else say(n.name,quest.herbsDone?'Thank you again for the mushrooms. The town is grateful.':'Moon-mushrooms collected: '+quest.herbs+'/4.');}
+  if(n.role==='herbquest'){if(!quest.herbsStarted){quest.herbsStarted=true;say(n.name,player.mushrooms>=4?'You already have '+player.mushrooms+' moon-mushrooms in your inventory! Bring me four and I will reward you.':'The forest glows with moon-mushrooms. Please gather four for my remedies. Anything you collect is kept in your inventory, even if you found it before speaking to me.')}else if(player.mushrooms>=4&&!quest.herbsDone){quest.herbsDone=true;player.mushrooms-=4;player.gold+=25;player.xp+=20;player.potions++;say(n.name,'Wonderful! I took four moon-mushrooms from your inventory. Here is 25 gold, some experience, and a health potion.')}else say(n.name,quest.herbsDone?'Thank you again for the mushrooms. The town is grateful.':'Moon-mushrooms in your inventory: '+player.mushrooms+'/4.');}
   else if(n.role==='batquest'){if(!quest.batsStarted){quest.batsStarted=true;say(n.name,'Bats have been swooping at travelers near the forest trail. Defeat three forest bats and report back to me.')}else if(quest.bats>=3&&!quest.batsDone){quest.batsDone=true;player.gold+=25;player.xp+=25;say(n.name,'That should make the road safer. Take 25 gold and experience for your work.')}else say(n.name,quest.batsDone?'The trail is much quieter now. Good work, fighter.':'Forest bats defeated: '+quest.bats+'/3.');}
   else if(n.role==='guide'){
    if(quest.stage===0){quest.stage=1;say(n.name,'Welcome, young fighter! Oakvale needs your help. Travel east to Whispering Woods and defeat five slimes. Use J to strike, K to block, and L for your special slash. Return to me when you are done.')}
@@ -224,7 +230,7 @@ function interact(){
   return;
  }
  const mushroom=mushrooms.find(m=>Math.abs(m.x-player.x)<38&&!m.taken);
- if(mushroom){mushroom.taken=true;if(quest.herbsStarted&&!quest.herbsDone)quest.herbs++;toast('Moon-mushroom collected! '+(quest.herbsStarted?quest.herbs+'/4':'Talk to Mira in town for a gathering quest.'));return}
+ if(mushroom){mushroom.taken=true;player.mushrooms++;toast('Moon-mushroom added to inventory! You have '+player.mushrooms+'.');updateUI();return}
  const chest=chests.find(c=>Math.abs(c.x-player.x)<55&&!c.opened);
  if(chest){chest.opened=true;player.gold+=15;player.potions++;player.xp+=10;say('Treasure Chest','You found 15 gold, a health potion, and 10 experience!');return}
  if(player.x>1030&&player.x<1130){say('Trail Sign','Whispering Woods stretch east from here. Watch for slimes, bats, and glowing moon-mushrooms.');return}
@@ -239,10 +245,10 @@ function updateUI(){
  document.getElementById('xp').style.width=(player.xp/(player.level*30)*100)+'%';document.getElementById('xptext').textContent=player.xp+' / '+(player.level*30);
  document.getElementById('gold').textContent=player.gold;
  let q=quest.stage===0?'Talk to the Wise Guide in town.':quest.stage===1?'Defeat forest slimes: '+quest.slimes+'/5.':quest.stage===2?'Explore Oldstone Cave and find the treasure.': 'Explore the region and help Oakvale.';
- if(quest.batsStarted&&!quest.batsDone)q+=' Scout: bats '+quest.bats+'/3. ';if(quest.herbsStarted&&!quest.herbsDone)q+=' Herbalist: mushrooms '+quest.herbs+'/4.';if(quest.batsDone)q+=' Scout quest complete. ';if(quest.herbsDone)q+=' Herbalist quest complete. ';
+ if(quest.batsStarted&&!quest.batsDone)q+=' Scout: bats '+quest.bats+'/3. ';if(quest.herbsStarted&&!quest.herbsDone)q+=' Herbalist: mushrooms '+player.mushrooms+'/4.';if(quest.batsDone)q+=' Scout quest complete. ';if(quest.herbsDone)q+=' Herbalist quest complete. ';
  if(quest.caveBoss)q+=' Cave guardian defeated!';
  document.getElementById('quest').textContent=q;
- document.getElementById('inventory').textContent='Rusty Sword · Simple Tunic · '+player.potions+' Health Potion(s) · '+player.gold+' gold'+(player.atk>12?' · Improved attack':'');
+ document.getElementById('inventory').textContent='Rusty Sword · Simple Tunic · '+player.potions+' Health Potion(s) · '+player.mushrooms+' Moon-mushroom(s) · '+player.gold+' gold'+(player.atk>12?' · Improved attack':'');
 }
 function draw(){
  drawWorld();
@@ -263,7 +269,7 @@ window.addEventListener('keydown',e=>{
  if(k==='l'&&!keys.l){attack(true)}
  if(k==='w'&&!keys.w&&!dialog&&(player.y+player.h>=ground-1||platforms.some(p=>player.x+player.w>p.x&&player.x<p.x+p.w&&Math.abs(player.y+player.h-p.y)<3)))player.vy=-350;
  if(k==='s'&&!keys.s&&!dialog&&platforms.some(p=>player.x+player.w>p.x&&player.x<p.x+p.w&&Math.abs(player.y+player.h-p.y)<4)){player.dropTimer=.28;player.y+=3;player.vy=90;}
- if(k==='i'&&!keys.i){say('Inventory','You carry '+player.potions+' health potion(s), '+player.gold+' gold, a '+(player.atk>12?'strong Apprentice Blade':'Rusty Sword')+', and simple armor. Press H to drink a potion.')}
+ if(k==='i'&&!keys.i){say('Inventory','You carry '+player.potions+' health potion(s), '+player.mushrooms+' moon-mushroom(s), '+player.gold+' gold, a '+(player.atk>12?'strong Apprentice Blade':'Rusty Sword')+', and simple armor. Press H to drink a potion.')}
  if(k==='h'&&!keys.h)usePotion();
  if(k==='b'&&!keys.b)shop();
  keys[k]=true;
