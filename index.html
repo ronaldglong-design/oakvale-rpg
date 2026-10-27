@@ -14,7 +14,7 @@ canvas{display:block;width:100%;height:auto;image-rendering:pixelated;touch-acti
 .pill{background:#132238eF;border:1px solid #62748b;border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 2px 0 #0003}
 .bar{height:8px;background:#4c2430;border-radius:8px;overflow:hidden;width:130px;margin-top:3px}.bar>i{display:block;height:100%;background:#f36b75;width:100%}.xpbar{background:#263c53}.xpbar i{background:#ffd56a}
 #hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#132238eF;border:1px solid #62748b;border-radius:8px;padding:7px 12px;text-align:center;font-size:12px;max-width:90%;white-space:nowrap}
-#dialog{display:none;position:absolute;left:50%;bottom:50px;transform:translateX(-50%);width:min(560px,92%);background:#111e31f5;border:2px solid #e8c875;border-radius:10px;padding:14px;box-shadow:0 8px 30px #0008}
+#classSelect{position:absolute;inset:0;background:#101827eF;z-index:8;display:flex;align-items:center;justify-content:center;padding:18px}#classSelect .choose{width:min(760px,100%);background:#19263a;border:2px solid #e9c76b;border-radius:14px;padding:20px;box-shadow:0 12px 40px #0009}#classSelect h2{margin:0 0 6px;color:#ffd56a}#classSelect p{margin:0 0 14px;color:#d4deeb}#classOptions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}#classOptions button{min-height:115px;text-align:left;white-space:normal;line-height:1.4;border:2px solid #a98b47}#classOptions button span{display:block;font-size:18px;margin-bottom:6px}@media(max-width:600px){#classOptions{grid-template-columns:1fr}#classOptions button{min-height:70px}}#dialog{display:none;position:absolute;left:50%;bottom:50px;transform:translateX(-50%);width:min(560px,92%);background:#111e31f5;border:2px solid #e8c875;border-radius:10px;padding:14px;box-shadow:0 8px 30px #0008}
 #dialog strong{color:#ffd56a;display:block;margin-bottom:5px}#dialog p{margin:0 0 10px;line-height:1.4}#dialog button{float:right}
 button{cursor:pointer;background:#e9c76b;color:#1d2431;border:0;border-radius:7px;padding:8px 12px;font-weight:750}button:hover{filter:brightness(1.08)}
 #side{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:10px;margin-top:10px}
@@ -35,21 +35,22 @@ button{cursor:pointer;background:#e9c76b;color:#1d2431;border:0;border-radius:7p
  <div class="pill">Gold: <b id="gold">10</b></div>
 </div>
 <div id="message"></div>
+<div id="classSelect"><div class="choose"><h2>Choose Your Adventurer</h2><p>Pick a class. You can start a new adventure with any of the three play styles.</p><div id="classOptions"><button data-class="fighter"><span>⚔ Fighter</span>Close-range sword attacks, block, and a spinning special.</button><button data-class="ranger"><span>➶ Ranger</span>Ranged bow shots, evasive guard, and rapid arrow release.</button><button data-class="mage"><span>✦ Mage</span>Magic missiles, arcane guard, and an ice spell that freezes enemies.</button></div></div></div>
 <div id="dialog"><strong id="speaker">Wise Guide</strong><p id="words"></p><button id="close">Continue [E]</button><div style="clear:both"></div></div>
 <div id="hint">A/D move · W jump · S drop down · J attack · K block · L special · E interact · I inventory · H potion · Esc close</div>
 </div>
 <div id="side">
  <section class="card"><h2>Current Quest</h2><div id="quest">Talk to the Wise Guide in town.</div><p class="small">Quest progress updates as you explore.</p></section>
  <section class="card"><h2>Inventory & Gear</h2><div id="inventory">Rusty Sword · Simple Tunic · 2 Health Potions</div><p class="small">Press I to inspect inventory and use a potion.</p></section>
- <section class="card"><h2>Controls & Tips</h2><p><b>J</b> sword slash · <b>K</b> block · <b>L</b> special spin attack</p><p><b>W</b> jump onto raised platforms · <b>S</b> drop down through them.</p><p><b>E</b> talk, enter shops, open chests, and use signs.</p><p>Defeat slimes for EXP. Forest starts east of town; the cave is farther east.</p></section>
+ <section class="card"><h2>Controls & Tips</h2><p id="abilityHelp"><b>J</b> sword slash · <b>K</b> block · <b>L</b> special spin attack</p><p><b>W</b> jump onto raised platforms · <b>S</b> drop down through them.</p><p><b>E</b> talk, enter shops, open chests, and use signs.</p><p>Defeat slimes for EXP. Forest starts east of town; the cave is farther east.</p></section>
 </div>
 </main>
 <script>
 (()=>{
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
 const W=960,H=540,worldW=4800,ground=438;
-let keys={},cam=0,dialog=null,toastTimer=0,toastText='',last=0;
-let player={x:110,y:ground-48,w:28,h:48,vx:0,vy:0,face:1,hp:100,maxhp:100,level:1,xp:0,gold:10,atk:12,blocking:false,attack:0,special:0,invuln:0,potions:2,mushrooms:0,dropTimer:0};
+let keys={},cam=0,dialog=null,toastTimer=0,toastText='',last=0,projectiles=[],gameStarted=false;
+let player={x:110,y:ground-48,w:28,h:48,vx:0,vy:0,face:1,hp:100,maxhp:100,level:1,xp:0,gold:10,atk:12,blocking:false,attack:0,special:0,invuln:0,potions:2,mushrooms:0,dropTimer:0,class:'fighter',specialCooldown:0,guardCooldown:0,guardTimer:0};
 let quest={stage:0,slimes:0,mushrooms:0,caveBoss:false,batsStarted:false,bats:0,batsDone:false,herbsStarted:false,herbs:0,herbsDone:false};
 // Walkable raised platforms across town, woods, and cave. Coordinates use world space.
 const platforms=[
@@ -58,16 +59,17 @@ const platforms=[
  {x:2740,y:350,w:125},{x:2940,y:310,w:130},{x:3160,y:355,w:115},{x:3370,y:285,w:145},{x:3610,y:335,w:130},{x:3830,y:300,w:135},{x:4050,y:355,w:120},{x:4260,y:315,w:140},{x:4500,y:350,w:125}
 ];
 let enemies=[
- {type:'slime',x:1190,y:ground-28,w:32,h:28,hp:24,max:24,alive:true,dir:-1,hit:0},
+ {type:'slime',x:1190,y:ground-28,w:32,h:28,hp:24,max:24,alive:true,dir:-1,hit:0,platformIndex:5},
  {type:'bat',x:1390,y:ground-130,w:30,h:22,hp:16,max:16,alive:true,dir:1,hit:0},
- {type:'slime',x:1630,y:ground-28,w:32,h:28,hp:24,max:24,alive:true,dir:-1,hit:0},
- {type:'mushroom',x:1970,y:ground-34,w:30,h:34,hp:32,max:32,alive:true,dir:-1,hit:0},
+ {type:'slime',x:1630,y:ground-28,w:32,h:28,hp:24,max:24,alive:true,dir:-1,hit:0,platformIndex:7},
+ {type:'mushroom',x:1970,y:ground-34,w:30,h:34,hp:32,max:32,alive:true,dir:-1,hit:0,platformIndex:9},
  {type:'slime',x:2250,y:ground-28,w:32,h:28,hp:28,max:28,alive:true,dir:1,hit:0},
  {type:'bat',x:2450,y:ground-150,w:30,h:22,hp:20,max:20,alive:true,dir:-1,hit:0},
- {type:'stone',x:2920,y:ground-32,w:36,h:32,hp:42,max:42,alive:true,dir:1,hit:0},
+ {type:'stone',x:2960,y:278,w:36,h:32,hp:42,max:42,alive:true,dir:1,hit:0,platformIndex:13},
  {type:'bat',x:3290,y:ground-145,w:30,h:22,hp:24,max:24,alive:true,dir:-1,hit:0},
- {type:'mushroom',x:3600,y:ground-34,w:30,h:34,hp:38,max:38,alive:true,dir:1,hit:0},
- {type:'slime',x:3910,y:ground-28,w:34,h:28,hp:34,max:34,alive:true,dir:-1,hit:0},
+ {type:'mushroom',x:3650,y:301,w:30,h:34,hp:38,max:38,alive:true,dir:1,hit:0,platformIndex:17},
+ {type:'slime',x:3910,y:ground-28,w:34,h:28,hp:34,max:34,alive:true,dir:-1,hit:0,platformIndex:18},
+ {type:'slime',x:755,y:297,w:32,h:28,hp:20,max:20,alive:true,dir:1,hit:0,platformIndex:3},
  {type:'golem',x:4520,y:ground-58,w:52,h:58,hp:110,max:110,alive:true,dir:-1,hit:0,boss:true}
 ];
 const npcs=[
@@ -144,19 +146,24 @@ function drawNpcBubble(x,y,label){
 }
 function drawPlayer(){
  let x=player.x-cam,y=player.y;
- // shadow
  ctx.fillStyle='#18344a55';ctx.beginPath();ctx.ellipse(x+14,ground+2,22,5,0,0,Math.PI*2);ctx.fill();
- // body / head
- rect(x+5,y+17,19,22,'#346fbb');rect(x+7,y+4,16,17,'#f0bd8e');rect(x+5,y,20,7,'#4d3326');rect(x+8,y+39,6,9,'#344052');rect(x+18,y+39,6,9,'#344052');
- // facing eye
+ const body=player.class==='ranger'?'#3b9b69':player.class==='mage'?'#8d65c7':'#346fbb';
+ rect(x+5,y+17,19,22,body);rect(x+7,y+4,16,17,'#f0bd8e');
+ if(player.class==='mage'){rect(x+3,y-5,24,9,'#493d86');rect(x+9,y-10,14,8,'#7866c7');rect(x+7,y+39,6,9,'#344052');rect(x+18,y+39,6,9,'#344052')}
+ else if(player.class==='ranger'){rect(x+5,y-2,21,7,'#614a2f');rect(x+5,y+39,6,9,'#344052');rect(x+18,y+39,6,9,'#344052');ctx.strokeStyle='#e4d4a4';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x+(player.face>0?25:3),y+24,11,-1.3,1.3);ctx.stroke()}
+ else {rect(x+5,y,20,7,'#4d3326');rect(x+8,y+39,6,9,'#344052');rect(x+18,y+39,6,9,'#344052')}
  rect(x+(player.face>0?18:9),y+10,3,3,'#243143');
- // sword / block / attacks
- if(player.blocking){rect(x+(player.face>0?25:-7),y+11,8,26,'#b7d5df');rect(x+(player.face>0?23:-9),y+9,12,5,'#f7e7a2')}
- else if(player.attack>0){let sx=x+(player.face>0?24:-28);rect(sx,y+18,34,5,'#d9eaf4');rect(sx+(player.face>0?24:0),y+10,5,20,'#fff0a0')}
- if(player.special>0){ctx.strokeStyle='#fff1a0';ctx.lineWidth=5;ctx.beginPath();ctx.arc(x+14,y+25,39,-1.2,1.2);ctx.stroke()}
+ if(player.blocking||player.guardTimer>0){ctx.strokeStyle=player.class==='mage'?'#8fe9ff':player.class==='ranger'?'#b4f4c8':'#b7d5df';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(x+14,y+25,23,28,0,0,Math.PI*2);ctx.stroke()}
+ if(player.attack>0&&player.class==='fighter'){let sx=x+(player.face>0?24:-28);rect(sx,y+18,34,5,'#d9eaf4');rect(sx+(player.face>0?24:0),y+10,5,20,'#fff0a0')}
+ if(player.special>0&&player.class==='fighter'){ctx.strokeStyle='#fff1a0';ctx.lineWidth=5;ctx.beginPath();ctx.arc(x+14,y+25,39,-1.2,1.2);ctx.stroke()}
+}
+function drawProjectile(p){let x=p.x-cam,y=p.y;if(x<-40||x>W+40)return;
+ if(p.kind==='arrow'){ctx.strokeStyle='#6e4b2d';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-p.dir*9,y);ctx.lineTo(x+p.dir*10,y);ctx.stroke();ctx.fillStyle='#d9e7e8';ctx.beginPath();ctx.moveTo(x+p.dir*12,y);ctx.lineTo(x+p.dir*5,y-4);ctx.lineTo(x+p.dir*5,y+4);ctx.fill();}
+ else if(p.kind==='ice'){ctx.fillStyle='#8eeaff';ctx.strokeStyle='#e4ffff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+8*p.dir,y);ctx.lineTo(x,y+10);ctx.lineTo(x-8*p.dir,y);ctx.closePath();ctx.fill();ctx.stroke()}
+ else {ctx.fillStyle='#8b8cff';ctx.beginPath();ctx.arc(x,y,7,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d9d7ff';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x-2*p.dir,y-2,2,0,Math.PI*2);ctx.fill()}
 }
 function drawEnemy(e){
- if(!e.alive)return;let x=e.x-cam,y=e.y;if(x<-80||x>W+80)return;
+ if(!e.alive)return;let x=e.x-cam,y=e.y;if(x<-80||x>W+80)return;if(e.frozen>0){ctx.fillStyle='#8deaff66';ctx.fillRect(x-4,y-5,e.w+8,e.h+10);ctx.strokeStyle='#c9f8ff';ctx.lineWidth=2;ctx.strokeRect(x-4,y-5,e.w+8,e.h+10)}
  if(e.type==='slime'||e.type==='stone'){ctx.fillStyle=e.type==='slime'?'#5bd17c':'#8d9ba7';ctx.beginPath();ctx.ellipse(x+e.w/2,y+e.h/2,e.w/2,e.h/2,0,Math.PI,Math.PI*2);ctx.lineTo(x+e.w,y+e.h);ctx.quadraticCurveTo(x+e.w/2,y+e.h+5,x,y+e.h);ctx.fill();rect(x+8,y+10,4,4,'#183746');rect(x+e.w-12,y+10,4,4,'#183746')}
  else if(e.type==='bat'){ctx.fillStyle='#56456f';ctx.beginPath();ctx.moveTo(x+15,y+10);ctx.lineTo(x,y);ctx.lineTo(x+4,y+17);ctx.lineTo(x+15,y+12);ctx.lineTo(x+27,y+17);ctx.lineTo(x+30,y);ctx.fill();rect(x+12,y+5,7,10,'#766291')}
  else if(e.type==='mushroom'){rect(x+7,y+12,17,22,'#e6d7b5');ctx.fillStyle='#d95c58';ctx.beginPath();ctx.ellipse(x+15,y+12,16,11,0,Math.PI,Math.PI*2);ctx.fill();rect(x+10,y+10,3,3,'#fff2d2')}
@@ -165,11 +172,12 @@ function drawEnemy(e){
  rect(x,y-9,e.w,4,'#572e3a');rect(x,y-9,e.w*Math.max(0,e.hp/e.max),4,'#f26b6b');
 }
 function update(dt){
+ if(!gameStarted){updateUI();return}
  const left=keys.a||keys.arrowleft,right=keys.d||keys.arrowright;
  player.vx=0;if(left){player.vx=-190;player.face=-1}if(right){player.vx=190;player.face=1}
  if(player.attack>0)player.attack-=dt;if(player.special>0)player.special-=dt;if(player.invuln>0)player.invuln-=dt;
- if(player.dropTimer>0)player.dropTimer-=dt;
- player.blocking=!!keys.k;
+ if(player.dropTimer>0)player.dropTimer-=dt;if(player.specialCooldown>0)player.specialCooldown-=dt;if(player.guardCooldown>0)player.guardCooldown-=dt;if(player.guardTimer>0)player.guardTimer-=dt;
+ player.blocking=player.class==='fighter'&&!!keys.k; if(player.class!=='fighter'&&keys.k&&player.guardCooldown<=0){player.guardTimer=.55;player.guardCooldown=2.2;player.invuln=Math.max(player.invuln,.45)}
  player.x+=player.vx*dt;player.x=Math.max(8,Math.min(worldW-player.w,player.x));
  const oldBottom=player.y+player.h;
  player.vy+=700*dt;player.y+=player.vy*dt;
@@ -184,26 +192,41 @@ function update(dt){
  if(player.y+player.h>=ground){player.y=ground-player.h;player.vy=0;landed=true}
  // Defeated monsters return after a short delay, making each area replayable.
  for(const e of enemies){
-  if(!e.alive){if(e.respawn>0){e.respawn-=dt;if(e.respawn<=0){e.alive=true;e.hp=e.max;e.x=e.spawnX;e.y=e.spawnY;e.hit=0;toast((e.boss?'The cave guardian':'A monster')+' has respawned.')}}continue}
+  if(!e.alive){if(e.respawn>0){e.respawn-=dt;if(e.respawn<=0){e.alive=true;e.hp=e.max;e.x=e.spawnX;e.y=e.spawnY;e.hit=0;e.frozen=0;toast((e.boss?'The cave guardian':'A monster')+' has respawned.')}}continue}
+  if(e.frozen>0){e.frozen=Math.max(0,e.frozen-dt);e.hit=Math.max(0,e.hit-dt);continue}
   if(e.type==='bat'){e.x+=Math.sin(performance.now()/400+e.x)*18*dt;e.y=(e.spawnY||ground-130)+Math.sin(performance.now()/300+e.x)*10}
+  else if(e.platformIndex!==undefined){const p=platforms[e.platformIndex];e.y=p.y-e.h;if(Math.abs(player.x-e.x)<250){e.dir=player.x<e.x?-1:1;e.x+=e.dir*(e.boss?25:32)*dt}else{e.x+=e.dir*12*dt}if(e.x<p.x){e.x=p.x;e.dir=1}if(e.x+e.w>p.x+p.w){e.x=p.x+p.w-e.w;e.dir=-1}}
   else if(Math.abs(player.x-e.x)<250){e.dir=player.x<e.x?-1:1;e.x+=e.dir*(e.boss?25:32)*dt}
   else {e.x+=e.dir*12*dt;if(e.x<e.homeMin||e.x>e.homeMax)e.dir*=-1}
-  e.x=Math.max(1100,Math.min(worldW-e.w,e.x));
+  if(e.platformIndex===undefined)e.x=Math.max(1100,Math.min(worldW-e.w,e.x));
   e.hit=Math.max(0,e.hit-dt);
   if(Math.abs(player.x-e.x)<e.w+player.w/2&&Math.abs(player.y-e.y)<45&&e.hit<=0){
-   e.hit=1.0;if(!player.blocking&&player.invuln<=0){let dmg=e.boss?17:7;player.hp=Math.max(0,player.hp-dmg);player.invuln=.6;toast('Hit for '+dmg+' damage');if(player.hp<=0){player.hp=player.maxhp;player.x=110;player.y=ground-player.h;player.gold=Math.max(0,player.gold-3);toast('You wake up at the inn. Lost 3 gold.')}}
+   e.hit=1.0;if(!player.blocking&&player.guardTimer<=0&&player.invuln<=0){let dmg=e.boss?17:7;player.hp=Math.max(0,player.hp-dmg);player.invuln=.6;toast('Hit for '+dmg+' damage');if(player.hp<=0){player.hp=player.maxhp;player.x=110;player.y=ground-player.h;player.gold=Math.max(0,player.gold-3);toast('You wake up at the inn. Lost 3 gold.')}}
   }
+ }
+ // Update ranged projectiles and resolve each hit once.
+ for(let i=projectiles.length-1;i>=0;i--){const p=projectiles[i];p.x+=p.vx*dt;p.life-=dt;let removed=p.life<=0||p.x<0||p.x>worldW;
+  if(!removed){for(const e of enemies){if(!e.alive||e.frozen>0&&p.kind==='ice'){} if(!e.alive)continue;
+   const nearX=p.x>=e.x-5&&p.x<=e.x+e.w+5;const nearY=Math.abs(p.y-(e.y+e.h/2))<Math.max(13,e.h*.45);
+   if(nearX&&nearY){e.hp-=p.damage;e.hit=Math.max(e.hit,.25);if(p.kind==='ice')e.frozen=3.2;if(e.hp<=0)killEnemy(e);removed=true;toast(p.kind==='ice'?'Ice spell! Enemy frozen.':p.kind==='arrow'?'Arrow hit!':'Magic missile hit!');break;}
+  }}if(removed)projectiles.splice(i,1);
  }
  cam=Math.max(0,Math.min(worldW-W,player.x-W*.38));
  updateUI();
 }
 function attack(special=false){
- if(dialog)return;
- if(special){if(player.special>0)return;player.special=.9}
+ if(dialog||!gameStarted)return;
+ if(special){if(player.specialCooldown>0)return;player.specialCooldown=player.class==='ranger'?2.6:player.class==='mage'?3.2:1.4;player.special=player.class==='fighter'?.9:.45}
  else player.attack=.22;
- let range=special?100:58;
- let hit=0;
- for(const e of enemies){if(!e.alive)continue;let dx=(e.x+e.w/2)-(player.x+player.w/2);if(Math.abs(dx)<=range&&Math.sign(dx||player.face)===player.face&&Math.abs(e.y-player.y)<100){e.hp-=special?player.atk*2.3:player.atk;if(e.hp<=0){e.alive=false;hit++;killEnemy(e)}}}
+ if(player.class==='ranger'){
+  const count=special?5:1;for(let i=0;i<count;i++)projectiles.push({kind:'arrow',x:player.x+player.w/2+player.face*20,y:player.y+22+(special?(i-2)*5:0),vx:player.face*(special?540:470),dir:player.face,damage:special?player.atk*0.8:player.atk,life:1.45});
+  if(special)toast('Rapid Release!');return;
+ }
+ if(player.class==='mage'){
+  projectiles.push({kind:special?'ice':'magic',x:player.x+player.w/2+player.face*20,y:player.y+22,vx:player.face*(special?330:390),dir:player.face,damage:special?player.atk*1.5:player.atk,life:1.8});if(special)toast('Ice spell cast!');return;
+ }
+ let range=special?100:58;let hit=0;
+ for(const e of enemies){if(!e.alive)continue;let dx=(e.x+e.w/2)-(player.x+player.w/2);if(Math.abs(dx)<=range&&Math.sign(dx||player.face)===player.face&&Math.abs((e.y+e.h/2)-(player.y+player.h/2))<100){e.hp-=special?player.atk*2.3:player.atk;if(e.hp<=0){e.alive=false;hit++;killEnemy(e)}}}
  if(hit)toast('Monster defeated!');else if(special)toast('Special slash!');
 }
 function killEnemy(e){e.respawn=e.boss?25:8;player.xp+=e.boss?50:10;player.gold+=e.boss?30:2;if(e.type==='slime'&&quest.stage>=1&&quest.stage<=2)quest.slimes++;
@@ -216,9 +239,9 @@ function interact(){
  const n=npcs.find(n=>Math.abs(n.x-(player.x+player.w/2))<65);
  if(n){
   if(n.role==='herbquest'){if(!quest.herbsStarted){quest.herbsStarted=true;say(n.name,player.mushrooms>=4?'You already have '+player.mushrooms+' moon-mushrooms in your inventory! Bring me four and I will reward you.':'The forest glows with moon-mushrooms. Please gather four for my remedies. Anything you collect is kept in your inventory, even if you found it before speaking to me.')}else if(player.mushrooms>=4&&!quest.herbsDone){quest.herbsDone=true;player.mushrooms-=4;player.gold+=25;player.xp+=20;player.potions++;say(n.name,'Wonderful! I took four moon-mushrooms from your inventory. Here is 25 gold, some experience, and a health potion.')}else say(n.name,quest.herbsDone?'Thank you again for the mushrooms. The town is grateful.':'Moon-mushrooms in your inventory: '+player.mushrooms+'/4.');}
-  else if(n.role==='batquest'){if(!quest.batsStarted){quest.batsStarted=true;say(n.name,'Bats have been swooping at travelers near the forest trail. Defeat three forest bats and report back to me.')}else if(quest.bats>=3&&!quest.batsDone){quest.batsDone=true;player.gold+=25;player.xp+=25;say(n.name,'That should make the road safer. Take 25 gold and experience for your work.')}else say(n.name,quest.batsDone?'The trail is much quieter now. Good work, fighter.':'Forest bats defeated: '+quest.bats+'/3.');}
+  else if(n.role==='batquest'){if(!quest.batsStarted){quest.batsStarted=true;say(n.name,'Bats have been swooping at travelers near the forest trail. Defeat three forest bats and report back to me.')}else if(quest.bats>=3&&!quest.batsDone){quest.batsDone=true;player.gold+=25;player.xp+=25;say(n.name,'That should make the road safer. Take 25 gold and experience for your work.')}else say(n.name,quest.batsDone?'The trail is much quieter now. Good work, adventurer.':'Forest bats defeated: '+quest.bats+'/3.');}
   else if(n.role==='guide'){
-   if(quest.stage===0){quest.stage=1;say(n.name,'Welcome, young fighter! Oakvale needs your help. Travel east to Whispering Woods and defeat five slimes. Use J to strike, K to block, and L for your special slash. Return to me when you are done.')}
+   if(quest.stage===0){quest.stage=1;say(n.name,'Welcome, young fighter! Oakvale needs your help. Travel east to Whispering Woods and defeat five slimes. Use J for your basic attack, K for defense, and L for your class special. Return to me when you are done.')}
    else if(quest.stage===1&&quest.slimes>=5){quest.stage=2;player.gold+=20;player.xp+=20;say(n.name,'Excellent work! The woods are safer already. Here are 20 gold and some experience. The cave farther east holds tougher creatures and a treasure chest.')}
    else if(quest.stage===1)say(n.name,'The forest slimes are east of town. Defeat five and come back to me. Slimes defeated: '+quest.slimes+'/5.');
    else if(quest.stage===2)say(n.name,'You have the makings of a real adventurer. Explore the forest, improve your gear, and investigate Oldstone Cave farther east.');
@@ -240,7 +263,8 @@ function interact(){
  toast('Explore town and look for people with an E above them.');
 }
 function updateUI(){
- document.getElementById('level').textContent='Lv. '+player.level+' Fighter';
+ const className=player.class[0].toUpperCase()+player.class.slice(1);document.getElementById('level').textContent='Lv. '+player.level+' '+className;
+ const abilityText=player.class==='ranger'?'<b>J</b> bow shot · <b>K</b> evasive guard · <b>L</b> rapid release':player.class==='mage'?'<b>J</b> magic missile · <b>K</b> arcane guard · <b>L</b> ice spell':'<b>J</b> sword slash · <b>K</b> block · <b>L</b> special spin attack';document.getElementById('abilityHelp').innerHTML=abilityText;
  document.getElementById('hp').style.width=(player.hp/player.maxhp*100)+'%';document.getElementById('hptext').textContent='HP '+player.hp+'/'+player.maxhp;
  document.getElementById('xp').style.width=(player.xp/(player.level*30)*100)+'%';document.getElementById('xptext').textContent=player.xp+' / '+(player.level*30);
  document.getElementById('gold').textContent=player.gold;
@@ -253,6 +277,7 @@ function updateUI(){
 function draw(){
  drawWorld();
  enemies.forEach(drawEnemy);
+ projectiles.forEach(drawProjectile);
  drawPlayer();
  // location marker
  if(player.x>=1080&&player.x<2650){rect(12,500,180,24,'#172335d9');text('WHISPERING WOODS',22,516,'#d8f3ce','bold 11px system-ui')}
@@ -264,6 +289,7 @@ function shop(){if(player.x<260||player.x>570){toast('Visit the blacksmith or it
 window.addEventListener('keydown',e=>{
  let k=e.key.toLowerCase();if([' ','arrowleft','arrowright','arrowup','arrowdown'].includes(k))e.preventDefault();
  if(k==='escape'){closeDialog();return}
+ if(!gameStarted){keys[k]=true;return}
  if(k==='e'){interact();return}
  if(k==='j'&&!keys.j){attack(false)}
  if(k==='l'&&!keys.l){attack(true)}
@@ -278,7 +304,8 @@ window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
 canvas.addEventListener('click',()=>{canvas.focus()});
 document.getElementById('close').addEventListener('click',closeDialog);
 // Buttons accessible via simple keyboard prompts; shops use B near merchant.
-for(const e of enemies){e.homeMin=e.x-90;e.homeMax=e.x+90;e.spawnX=e.x;e.spawnY=e.y;e.respawn=0}
+for(const e of enemies){if(e.platformIndex!==undefined){const p=platforms[e.platformIndex];e.y=p.y-e.h;e.homeMin=p.x;e.homeMax=p.x+p.w-e.w} else {e.homeMin=e.x-90;e.homeMax=e.x+90}e.spawnX=e.x;e.spawnY=e.y;e.respawn=0;e.frozen=0}
+document.querySelectorAll('#classOptions button').forEach(btn=>btn.addEventListener('click',()=>{player.class=btn.dataset.class;gameStarted=true;document.getElementById('classSelect').style.display='none';toast(player.class[0].toUpperCase()+player.class.slice(1)+' selected. Adventure begins!');updateUI()}));
 updateUI();requestAnimationFrame(loop);
 })();
 </script>
