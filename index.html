@@ -20,7 +20,7 @@ button{cursor:pointer;background:#e9c76b;color:#1d2431;border:0;border-radius:7p
 #side{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:10px;margin-top:10px}
 .card{background:#19263a;border:1px solid #34455c;border-radius:10px;padding:11px;min-height:110px}.card h2{font-size:14px;color:#ffd56a;margin:0 0 7px}.card p{margin:4px 0;color:#d4deeb;font-size:13px;line-height:1.4}
 #quest{font-size:13px;line-height:1.45}.small{font-size:12px;color:#b8c8dc}
-#message{position:absolute;right:12px;top:12px;background:#132238eF;border:1px solid #62748b;border-radius:8px;padding:8px 10px;max-width:230px;display:none;font-size:12px}
+#journalPanel{display:none;position:absolute;inset:45px 10%;background:#101d31f5;border:2px solid #e9c76b;border-radius:12px;z-index:7;padding:20px;overflow:auto;box-shadow:0 12px 35px #000a}#journalPanel h2{color:#ffd56a;margin-top:0}#journalPanel li{margin:8px 0}#journalPanel .done{color:#8ee1a5}#journalPanel .pending{color:#f1d78a}.progressActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.progressActions button{font-size:12px}#message{position:absolute;right:12px;top:12px;background:#132238eF;border:1px solid #62748b;border-radius:8px;padding:8px 10px;max-width:230px;display:none;font-size:12px}
 @media(max-width:680px){#side{grid-template-columns:1fr}#hint{font-size:10px}.hud{max-width:90%}.bar{width:95px}}
 </style>
 </head>
@@ -36,11 +36,12 @@ button{cursor:pointer;background:#e9c76b;color:#1d2431;border:0;border-radius:7p
 </div>
 <div id="message"></div>
 <div id="classSelect"><div class="choose"><h2>Choose Your Adventurer</h2><p>Pick a class. You can start a new adventure with any of the three play styles.</p><div id="classOptions"><button data-class="fighter"><span>⚔ Fighter</span>Close-range sword attacks, block, and a spinning special.</button><button data-class="ranger"><span>➶ Ranger</span>Ranged bow shots, evasive guard, and rapid arrow release.</button><button data-class="mage"><span>✦ Mage</span>Magic missiles, arcane guard, and an ice spell that freezes enemies.</button></div></div></div>
+<div id="journalPanel"><button id="closeJournal" style="float:right">Close [Q]</button><h2>Adventure Journal</h2><div id="journalContent"></div></div>
 <div id="dialog"><strong id="speaker">Wise Guide</strong><p id="words"></p><button id="close">Continue [E]</button><div style="clear:both"></div></div>
-<div id="hint">A/D move · W jump · S drop down · J attack · K block · L special · E interact · I inventory · H potion · Esc close</div>
+<div id="hint">A/D move · W jump · S drop down · J attack · K block · L special · E interact · I inventory · H potion · Q journal · Esc close</div>
 </div>
 <div id="side">
- <section class="card"><h2>Current Quest</h2><div id="quest">Talk to the Wise Guide in town.</div><p class="small">Quest progress updates as you explore.</p></section>
+ <section class="card"><h2>Current Quest</h2><div id="quest">Talk to the Wise Guide in town.</div><p class="small">Press Q for your quest journal.</p><div class="progressActions"><button id="journalButton">Journal [Q]</button><button id="saveButton">Save</button><button id="resetButton">New Game</button></div><p class="small" id="saveStatus">Progress saves automatically.</p></section>
  <section class="card"><h2>Inventory & Gear</h2><div id="inventory">Rusty Sword · Simple Tunic · 2 Health Potions</div><p class="small">Press I to inspect inventory and use a potion.</p></section>
  <section class="card"><h2>Controls & Tips</h2><p id="abilityHelp"><b>J</b> sword slash · <b>K</b> block · <b>L</b> special spin attack</p><p><b>W</b> jump onto raised platforms · <b>S</b> drop down through them.</p><p><b>E</b> talk, enter shops, open chests, and use signs.</p><p>Defeat slimes for EXP. Forest starts east of town; the cave is farther east.</p></section>
 </div>
@@ -51,6 +52,17 @@ const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
 const W=960,H=540,worldW=4800,ground=438;
 let keys={},cam=0,dialog=null,toastTimer=0,toastText='',last=0,projectiles=[],gameStarted=false;
 let player={x:110,y:ground-48,w:28,h:48,vx:0,vy:0,face:1,hp:100,maxhp:100,level:1,xp:0,gold:10,atk:12,blocking:false,attack:0,special:0,invuln:0,potions:2,mushrooms:0,dropTimer:0,class:'fighter',specialCooldown:0,guardCooldown:0,guardTimer:0,shotCooldown:0,rangerShots:0};
+let saveClock=0,journalOpen=false,skillPoints=0,saveVersion=3;
+const SAVE_KEY='oakvale-milestone3-save';
+const classBase={fighter:{hp:100,atk:12},ranger:{hp:140,atk:12},mage:{hp:70,atk:12}};
+const skillNames={fighter:['Heavy Strike','Iron Will','Whirlwind Mastery'],ranger:['Longshot','Stronger Arrows','Arrow Storm'],mage:['Arcane Focus','Frost Mastery','Winter Nova']};
+function xpNeeded(level){return level*30}
+function gainXP(amount){if(player.level>=10){player.xp=0;return}player.xp+=amount;while(player.level<10&&player.xp>=xpNeeded(player.level)){player.xp-=xpNeeded(player.level);player.level++;player.maxhp+=player.class==='ranger'?16:player.class==='fighter'?12:8;player.hp=player.maxhp;player.atk+=player.class==='mage'?4:3;skillPoints++;toast('Level '+player.level+'! New skill point earned.')}if(player.level>=10)player.xp=0}
+function skillTier(){return player.level>=10?3:player.level>=5?2:player.level>=3?1:0}
+function saveGame(silent=true){if(!gameStarted)return;try{const state={version:saveVersion,player:{...player},quest:{...quest},chests:chests.map(c=>c.opened),mushrooms:mushrooms.map(m=>m.taken),skillPoints};localStorage.setItem(SAVE_KEY,JSON.stringify(state));document.getElementById('saveStatus').textContent='Saved locally in this browser.';if(!silent)toast('Adventure saved!')}catch(err){document.getElementById('saveStatus').textContent='Browser storage unavailable.';if(!silent)toast('Could not save in this browser.')}}
+function loadGame(){try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)return false;const state=JSON.parse(raw);if(state.version!==saveVersion||!classBase[state.player?.class])return false;Object.assign(player,state.player);Object.assign(quest,state.quest);skillPoints=state.skillPoints||0;chests.forEach((c,i)=>c.opened=!!state.chests?.[i]);mushrooms.forEach((m,i)=>m.taken=!!state.mushrooms?.[i]);player.level=Math.max(1,Math.min(10,player.level));player.x=Math.max(8,Math.min(worldW-player.w,player.x));player.y=Math.min(ground-player.h,player.y);player.hp=Math.max(1,Math.min(player.maxhp,player.hp));player.attack=0;player.special=0;player.invuln=0;player.guardTimer=0;player.blocking=false;player.shotCooldown=0;player.rangerShots=0;projectiles=[];return true}catch(err){return false}}
+function toggleJournal(force){journalOpen=typeof force==='boolean'?force:!journalOpen;document.getElementById('journalPanel').style.display=journalOpen?'block':'none';if(journalOpen)renderJournal()}
+function renderJournal(){const tasks=[['Meet the Wise Guide',quest.stage>0,'Talk to the guide in Oakvale.'],['Clear the Whispering Woods',quest.stage>=2,'Defeat five slimes ('+Math.min(5,quest.slimes)+'/5), then report to the guide.'],['Explore Oldstone Cave',quest.caveBoss,'Find and defeat the cave guardian.'],['Help Mira the Herbalist',quest.herbsDone,'Collect four moon-mushrooms ('+player.mushrooms+' in inventory) and return to Mira.'],['Help Rook the Scout',quest.batsDone,'Defeat three bats ('+Math.min(3,quest.bats)+'/3) and report back.']];const tier=skillTier(),names=skillNames[player.class];document.getElementById('journalContent').innerHTML='<h3>Quests</h3><ul>'+tasks.map(([name,done,detail])=>'<li class="'+(done?'done':'pending')+'">'+(done?'✓ ':'○ ')+name+'<div class="small">'+detail+'</div></li>').join('')+'</ul><h3>Class Progression</h3><p>Level '+player.level+'/10 · '+skillPoints+' skill point(s) earned · '+(player.level>=10?'Maximum level reached':player.xp+'/'+xpNeeded(player.level)+' XP toward next level')+'</p><ul>'+names.map((name,i)=>'<li class="'+(tier>=i+1?'done':'pending')+'">Level '+[3,5,10][i]+': '+name+(tier>=i+1?' ✓ Unlocked':' · Locked')+'</li>').join('')+'</ul><p class="small">Skills unlock automatically at the indicated levels. Earned skill points are a progression tally; upgrades activate automatically.</p>'}
 let quest={stage:0,slimes:0,mushrooms:0,caveBoss:false,batsStarted:false,bats:0,batsDone:false,herbsStarted:false,herbs:0,herbsDone:false};
 // Walkable raised platforms across town, woods, and cave. Coordinates use world space.
 const platforms=[
@@ -227,6 +239,8 @@ function drawEnemy(e){
 }
 function update(dt){
  if(!gameStarted){updateUI();return}
+ saveClock+=dt;if(saveClock>=8){saveClock=0;saveGame()}
+ if(journalOpen){updateUI();return}
  const left=keys.a||keys.arrowleft,right=keys.d||keys.arrowright;
  player.vx=0;if(left){player.vx=-190;player.face=-1}if(right){player.vx=190;player.face=1}
  if(player.attack>0)player.attack-=dt;if(player.special>0)player.special-=dt;if(player.invuln>0)player.invuln-=dt;
@@ -255,14 +269,14 @@ function update(dt){
   if(e.platformIndex===undefined)e.x=Math.max(1100,Math.min(worldW-e.w,e.x));
   e.hit=Math.max(0,e.hit-dt);
   if(Math.abs(player.x-e.x)<e.w+player.w/2&&Math.abs(player.y-e.y)<45&&e.hit<=0){
-   e.hit=1.0;if(!player.blocking&&player.guardTimer<=0&&player.invuln<=0){let dmg=e.boss?17:7;player.hp=Math.max(0,player.hp-dmg);player.invuln=.6;toast('Hit for '+dmg+' damage');if(player.hp<=0){player.hp=player.maxhp;player.x=110;player.y=ground-player.h;player.gold=Math.max(0,player.gold-3);toast('You wake up at the inn. Lost 3 gold.')}}
+   e.hit=1.0;if(!player.blocking&&player.guardTimer<=0&&player.invuln<=0){let dmg=e.boss?17:7;if(player.class==='fighter'&&skillTier()>=2)dmg=Math.ceil(dmg*.7);player.hp=Math.max(0,player.hp-dmg);player.invuln=.6;toast('Hit for '+dmg+' damage');if(player.hp<=0){player.hp=player.maxhp;player.x=110;player.y=ground-player.h;player.gold=Math.max(0,player.gold-3);toast('You wake up at the inn. Lost 3 gold.')}}
   }
  }
  // Update ranged projectiles and resolve each hit once.
  for(let i=projectiles.length-1;i>=0;i--){const p=projectiles[i];p.x+=p.vx*dt;p.life-=dt;let removed=p.life<=0||p.x<0||p.x>worldW;
   if(!removed){for(const e of enemies){if(!e.alive)continue;
    const nearX=p.x>=e.x-5&&p.x<=e.x+e.w+5;const nearY=Math.abs(p.y-(e.y+e.h/2))<Math.max(13,e.h*.45);
-   if(nearX&&nearY){e.hp-=p.damage;e.hit=Math.max(e.hit,.25);if(p.kind==='ice')e.frozen=3.2;if(e.hp<=0)killEnemy(e);removed=true;toast(p.kind==='ice'?'Ice spell! Enemy frozen.':p.kind==='arrow'?'Arrow hit!':'Magic missile hit!');break;}
+   if(nearX&&nearY){e.hp-=p.damage;e.hit=Math.max(e.hit,.25);if(p.kind==='ice'){e.frozen=skillTier()>=2?4.3:3.2;if(skillTier()>=3){for(const nearby of enemies){if(nearby.alive&&nearby!==e&&Math.abs(nearby.x-e.x)<90&&Math.abs(nearby.y-e.y)<90){nearby.frozen=3.2;nearby.hp-=p.damage*.5;if(nearby.hp<=0)killEnemy(nearby)}}}}if(e.hp<=0)killEnemy(e);removed=true;toast(p.kind==='ice'?'Ice spell! Enemy frozen.':p.kind==='arrow'?'Arrow hit!':'Magic missile hit!');break;}
   }}if(removed)projectiles.splice(i,1);
  }
  cam=Math.max(0,Math.min(worldW-W,player.x-W*.38));
@@ -275,34 +289,34 @@ function attack(special=false){
  else player.attack=.22;
  if(player.class==='ranger'){
   if(!special){player.rangerShots++;if(player.rangerShots>=3){player.shotCooldown=3;toast('Quiver reloading: 3 seconds')}}
-  const count=special?5:1;for(let i=0;i<count;i++)projectiles.push({kind:'arrow',x:player.x+player.w/2+player.face*20,y:player.y+22+(special?(i-2)*5:0),vx:player.face*(special?540:470),dir:player.face,damage:special?player.atk*0.55:player.atk*0.6,life:1.45});
+  const count=special?(skillTier()>=3?8:5):1;for(let i=0;i<count;i++)projectiles.push({kind:'arrow',x:player.x+player.w/2+player.face*20,y:player.y+22+(special?(i-2)*5:0),vx:player.face*(special?540:470),dir:player.face,damage:(special?player.atk*0.55:player.atk*0.6)*(skillTier()>=2?1.22:1),life:skillTier()>=1?1.95:1.45});
   if(special)toast('Rapid Release!');return;
  }
  if(player.class==='mage'){
   if(!special)player.shotCooldown=1;
-  projectiles.push({kind:special?'ice':'magic',x:player.x+player.w/2+player.face*20,y:player.y+22,vx:player.face*(special?330:390),dir:player.face,damage:special?player.atk*1.2:player.atk*1.35,life:1.8});if(special)toast('Ice spell cast!');return;
+  projectiles.push({kind:special?'ice':'magic',x:player.x+player.w/2+player.face*20,y:player.y+22,vx:player.face*(special?330:390),dir:player.face,damage:(special?player.atk*1.2:player.atk*1.35)*(skillTier()>=1?1.15:1),life:1.8});if(special)toast('Ice spell cast!');return;
  }
  let range=special?100:58;let hit=0;
- for(const e of enemies){if(!e.alive)continue;let dx=(e.x+e.w/2)-(player.x+player.w/2);if(Math.abs(dx)<=range&&Math.sign(dx||player.face)===player.face&&Math.abs((e.y+e.h/2)-(player.y+player.h/2))<100){e.hp-=special?player.atk*2.3:player.atk;if(e.hp<=0){hit++;killEnemy(e)}}}
+ for(const e of enemies){if(!e.alive)continue;let dx=(e.x+e.w/2)-(player.x+player.w/2);if(Math.abs(dx)<=range&&Math.sign(dx||player.face)===player.face&&Math.abs((e.y+e.h/2)-(player.y+player.h/2))<100){e.hp-=(special?player.atk*(skillTier()>=3?3.1:2.3):player.atk*(skillTier()>=1?1.2:1));if(e.hp<=0){hit++;killEnemy(e)}}}
  if(hit)toast('Monster defeated!');else if(special)toast('Special slash!');
 }
-function killEnemy(e){if(!e.alive)return;e.alive=false;e.hp=0;e.respawn=e.boss?25:8;player.xp+=e.boss?50:10;player.gold+=e.boss?30:2;if(e.type==='slime'&&quest.stage>=1&&quest.stage<=2)quest.slimes++;
+function killEnemy(e){if(!e.alive)return;e.alive=false;e.hp=0;e.respawn=e.boss?25:8;gainXP(e.boss?50:10);player.gold+=e.boss?30:2;if(e.type==='slime'&&quest.stage>=1&&quest.stage<=2)quest.slimes++;
  if(e.type==='bat'&&quest.batsStarted&&!quest.batsDone)quest.bats++;
- if(player.xp>=player.level*30){player.xp-=player.level*30;player.level++;player.maxhp+=12;player.hp=player.maxhp;player.atk+=3;toast('Level up! You are level '+player.level)}
+
  if(e.boss){quest.caveBoss=true;toast('Cave guardian defeated! +50 EXP, +30 gold')}
 }
 function interact(){
  if(dialog){closeDialog();return}
  const n=npcs.find(n=>Math.abs(n.x-(player.x+player.w/2))<65);
  if(n){
-  if(n.role==='herbquest'){if(!quest.herbsStarted){quest.herbsStarted=true;say(n.name,player.mushrooms>=4?'You already have '+player.mushrooms+' moon-mushrooms in your inventory! Bring me four and I will reward you.':'The forest glows with moon-mushrooms. Please gather four for my remedies. Anything you collect is kept in your inventory, even if you found it before speaking to me.')}else if(player.mushrooms>=4&&!quest.herbsDone){quest.herbsDone=true;player.mushrooms-=4;player.gold+=25;player.xp+=20;player.potions++;say(n.name,'Wonderful! I took four moon-mushrooms from your inventory. Here is 25 gold, some experience, and a health potion.')}else say(n.name,quest.herbsDone?'Thank you again for the mushrooms. The town is grateful.':'Moon-mushrooms in your inventory: '+player.mushrooms+'/4.');}
-  else if(n.role==='batquest'){if(!quest.batsStarted){quest.batsStarted=true;say(n.name,'Bats have been swooping at travelers near the forest trail. Defeat three forest bats and report back to me.')}else if(quest.bats>=3&&!quest.batsDone){quest.batsDone=true;player.gold+=25;player.xp+=25;say(n.name,'That should make the road safer. Take 25 gold and experience for your work.')}else say(n.name,quest.batsDone?'The trail is much quieter now. Good work, adventurer.':'Forest bats defeated: '+quest.bats+'/3.');}
+  if(n.role==='herbquest'){if(!quest.herbsStarted){quest.herbsStarted=true;say(n.name,player.mushrooms>=4?'You already have '+player.mushrooms+' moon-mushrooms in your inventory! Bring me four and I will reward you.':'The forest glows with moon-mushrooms. Please gather four for my remedies. Anything you collect is kept in your inventory, even if you found it before speaking to me.')}else if(player.mushrooms>=4&&!quest.herbsDone){quest.herbsDone=true;player.mushrooms-=4;player.gold+=25;gainXP(20);player.potions++;say(n.name,'Wonderful! I took four moon-mushrooms from your inventory. Here is 25 gold, some experience, and a health potion.')}else say(n.name,quest.herbsDone?'Thank you again for the mushrooms. The town is grateful.':'Moon-mushrooms in your inventory: '+player.mushrooms+'/4.');}
+  else if(n.role==='batquest'){if(!quest.batsStarted){quest.batsStarted=true;say(n.name,'Bats have been swooping at travelers near the forest trail. Defeat three forest bats and report back to me.')}else if(quest.bats>=3&&!quest.batsDone){quest.batsDone=true;player.gold+=25;gainXP(25);say(n.name,'That should make the road safer. Take 25 gold and experience for your work.')}else say(n.name,quest.batsDone?'The trail is much quieter now. Good work, adventurer.':'Forest bats defeated: '+quest.bats+'/3.');}
   else if(n.role==='guide'){
-   if(quest.stage===0){quest.stage=1;say(n.name,'Welcome, young fighter! Oakvale needs your help. Travel east to Whispering Woods and defeat five slimes. Use J for your basic attack, K for defense, and L for your class special. Return to me when you are done.')}
-   else if(quest.stage===1&&quest.slimes>=5){quest.stage=2;player.gold+=20;player.xp+=20;say(n.name,'Excellent work! The woods are safer already. Here are 20 gold and some experience. The cave farther east holds tougher creatures and a treasure chest.')}
+   if(quest.stage===0){quest.stage=1;say(n.name,'Welcome, adventurer! Oakvale needs your help. Travel east to Whispering Woods and defeat five slimes. Use J for your basic attack, K for defense, and L for your class special. Return to me when you are done.')}
+   else if(quest.stage===1&&quest.slimes>=5){quest.stage=2;player.gold+=20;gainXP(20);say(n.name,'Excellent work! The woods are safer already. Here are 20 gold and some experience. The cave farther east holds tougher creatures and a treasure chest.')}
    else if(quest.stage===1)say(n.name,'The forest slimes are east of town. Defeat five and come back to me. Slimes defeated: '+quest.slimes+'/5.');
    else if(quest.stage===2)say(n.name,'You have the makings of a real adventurer. Explore the forest, improve your gear, and investigate Oldstone Cave farther east.');
-   else say(n.name,'Keep exploring, fighter. Oakvale is counting on you.');
+   else say(n.name,'Keep exploring, adventurer. Oakvale is counting on you.');
   } else if(n.role==='smith')say(n.name,'A good sword makes a good fighter. The Apprentice Blade costs 15 gold. Press E near me again to hear the offer, then use the shop button below.');
   else if(n.role==='inn'){player.hp=player.maxhp;say(n.name,'Welcome to the Oakvale Inn! Rest up. Your health has been restored.')}
   else if(n.role==='shop')say(n.name,'Health potions restore 35 HP. I can sell you one for 5 gold. Use the Shop button below.');
@@ -312,7 +326,7 @@ function interact(){
  const mushroom=mushrooms.find(m=>Math.abs(m.x-player.x)<38&&!m.taken);
  if(mushroom){mushroom.taken=true;player.mushrooms++;toast('Moon-mushroom added to inventory! You have '+player.mushrooms+'.');updateUI();return}
  const chest=chests.find(c=>Math.abs(c.x-player.x)<55&&!c.opened);
- if(chest){chest.opened=true;player.gold+=15;player.potions++;player.xp+=10;say('Treasure Chest','You found 15 gold, a health potion, and 10 experience!');return}
+ if(chest){chest.opened=true;player.gold+=15;player.potions++;gainXP(10);say('Treasure Chest','You found 15 gold, a health potion, and 10 experience!');return}
  if(player.x>1030&&player.x<1130){say('Trail Sign','Whispering Woods stretch east from here. Watch for slimes, bats, and glowing moon-mushrooms.');return}
  if(player.x>2600&&player.x<2700){say('Cave Sign','Oldstone Cave. Bring potions and keep your guard ready. The guardian waits deep inside.');return}
  if(player.x>1080&&player.x<2650){toast('Whispering Woods: explore the trails and gather moon-mushrooms.');return}
@@ -323,7 +337,7 @@ function updateUI(){
  const className=player.class[0].toUpperCase()+player.class.slice(1);document.getElementById('level').textContent='Lv. '+player.level+' '+className;
  const abilityText=player.class==='ranger'?'<b>J</b> bow shot (3 shots, 3s reload) · <b>K</b> evasive guard · <b>L</b> rapid release':player.class==='mage'?'<b>J</b> magic missile (1s cooldown) · <b>K</b> arcane guard · <b>L</b> ice spell':'<b>J</b> sword slash · <b>K</b> block · <b>L</b> special spin attack';document.getElementById('abilityHelp').innerHTML=abilityText;
  document.getElementById('hp').style.width=(player.hp/player.maxhp*100)+'%';document.getElementById('hptext').textContent='HP '+player.hp+'/'+player.maxhp;
- document.getElementById('xp').style.width=(player.xp/(player.level*30)*100)+'%';document.getElementById('xptext').textContent=player.xp+' / '+(player.level*30);
+ document.getElementById('xp').style.width=(player.level>=10?100:player.xp/xpNeeded(player.level)*100)+'%';document.getElementById('xptext').textContent=player.level>=10?'MAX LEVEL':player.xp+' / '+xpNeeded(player.level);
  document.getElementById('gold').textContent=player.gold;
  let q=quest.stage===0?'Talk to the Wise Guide in town.':quest.stage===1?'Defeat forest slimes: '+quest.slimes+'/5.':quest.stage===2?'Explore Oldstone Cave and find the treasure.': 'Explore the region and help Oakvale.';
  if(quest.batsStarted&&!quest.batsDone)q+=' Scout: bats '+quest.bats+'/3. ';if(quest.herbsStarted&&!quest.herbsDone)q+=' Herbalist: mushrooms '+player.mushrooms+'/4.';if(quest.batsDone)q+=' Scout quest complete. ';if(quest.herbsDone)q+=' Herbalist quest complete. ';
@@ -345,8 +359,10 @@ function usePotion(){if(player.potions>0&&player.hp<player.maxhp){player.potions
 function shop(){if(player.x<260||player.x>570){toast('Visit the blacksmith or item merchant in town first.');return}if(player.x<350){if(player.gold>=15){player.gold-=15;player.atk+=5;say('Blacksmith','You bought the Apprentice Blade! Your attacks are stronger.')}else say('Blacksmith','The Apprentice Blade costs 15 gold. Earn some gold by defeating monsters.')}else{if(player.gold>=5){player.gold-=5;player.potions++;say('Item Merchant','One fresh health potion. Take care out there.')}else say('Item Merchant','A potion costs 5 gold. Defeat monsters to earn gold.')}updateUI()}
 window.addEventListener('keydown',e=>{
  let k=e.key.toLowerCase();if([' ','arrowleft','arrowright','arrowup','arrowdown'].includes(k))e.preventDefault();
- if(k==='escape'){closeDialog();return}
+ if(k==='escape'){closeDialog();toggleJournal(false);return}
  if(!gameStarted){keys[k]=true;return}
+ if(k==='q'&&!e.repeat){toggleJournal();return}
+ if(journalOpen)return
  if(k==='e'){interact();return}
  if(k==='j'&&!keys.j){attack(false)}
  if(k==='l'&&!keys.l){attack(true)}
@@ -362,7 +378,13 @@ canvas.addEventListener('click',()=>{canvas.focus()});
 document.getElementById('close').addEventListener('click',closeDialog);
 // Buttons accessible via simple keyboard prompts; shops use B near merchant.
 for(const e of enemies){if(e.platformIndex!==undefined){const p=platforms[e.platformIndex];e.y=p.y-e.h;e.homeMin=p.x;e.homeMax=p.x+p.w-e.w} else {e.homeMin=e.x-90;e.homeMax=e.x+90}e.spawnX=e.x;e.spawnY=e.y;e.respawn=0;e.frozen=0}
-document.querySelectorAll('#classOptions button').forEach(btn=>btn.addEventListener('click',()=>{player.class=btn.dataset.class;player.maxhp=player.class==='ranger'?140:player.class==='fighter'?100:70;player.hp=player.maxhp;player.shotCooldown=0;player.rangerShots=0;gameStarted=true;document.getElementById('classSelect').style.display='none';toast(player.class[0].toUpperCase()+player.class.slice(1)+' selected. Adventure begins!');updateUI()}));
+document.querySelectorAll('#classOptions button').forEach(btn=>btn.addEventListener('click',()=>{player.class=btn.dataset.class;player.maxhp=player.class==='ranger'?140:player.class==='fighter'?100:70;player.hp=player.maxhp;player.shotCooldown=0;player.rangerShots=0;gameStarted=true;document.getElementById('classSelect').style.display='none';toast(player.class[0].toUpperCase()+player.class.slice(1)+' selected. Adventure begins!');saveGame();updateUI()}));
+document.getElementById('journalButton').onclick=()=>toggleJournal();
+document.getElementById('closeJournal').onclick=()=>toggleJournal(false);
+document.getElementById('saveButton').onclick=()=>saveGame(false);
+document.getElementById('resetButton').onclick=()=>{if(confirm('Start a new adventure? Your saved character and quest progress will be erased.')){try{localStorage.removeItem(SAVE_KEY)}catch(e){}location.reload()}};
+if(loadGame()){gameStarted=true;document.getElementById('classSelect').style.display='none';document.getElementById('saveStatus').textContent='Saved adventure restored.';toast('Welcome back! Your adventure has been loaded.')}
+window.addEventListener('pagehide',()=>saveGame());
 updateUI();requestAnimationFrame(loop);
 })();
 </script>
