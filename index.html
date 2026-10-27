@@ -50,7 +50,7 @@ button{cursor:pointer;background:#e9c76b;color:#1d2431;border:0;border-radius:7p
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
 const W=960,H=540,worldW=4800,ground=438;
 let keys={},cam=0,dialog=null,toastTimer=0,toastText='',last=0,projectiles=[],gameStarted=false;
-let player={x:110,y:ground-48,w:28,h:48,vx:0,vy:0,face:1,hp:100,maxhp:100,level:1,xp:0,gold:10,atk:12,blocking:false,attack:0,special:0,invuln:0,potions:2,mushrooms:0,dropTimer:0,class:'fighter',specialCooldown:0,guardCooldown:0,guardTimer:0};
+let player={x:110,y:ground-48,w:28,h:48,vx:0,vy:0,face:1,hp:100,maxhp:100,level:1,xp:0,gold:10,atk:12,blocking:false,attack:0,special:0,invuln:0,potions:2,mushrooms:0,dropTimer:0,class:'fighter',specialCooldown:0,guardCooldown:0,guardTimer:0,shotCooldown:0,rangerShots:0};
 let quest={stage:0,slimes:0,mushrooms:0,caveBoss:false,batsStarted:false,bats:0,batsDone:false,herbsStarted:false,herbs:0,herbsDone:false};
 // Walkable raised platforms across town, woods, and cave. Coordinates use world space.
 const platforms=[
@@ -69,7 +69,6 @@ let enemies=[
  {type:'bat',x:3290,y:ground-145,w:30,h:22,hp:24,max:24,alive:true,dir:-1,hit:0},
  {type:'mushroom',x:3650,y:301,w:30,h:34,hp:38,max:38,alive:true,dir:1,hit:0,platformIndex:17},
  {type:'slime',x:3910,y:ground-28,w:34,h:28,hp:34,max:34,alive:true,dir:-1,hit:0,platformIndex:18},
- {type:'slime',x:755,y:297,w:32,h:28,hp:20,max:20,alive:true,dir:1,hit:0,platformIndex:3},
  {type:'golem',x:4520,y:ground-58,w:52,h:58,hp:110,max:110,alive:true,dir:-1,hit:0,boss:true}
 ];
 const npcs=[
@@ -105,15 +104,42 @@ function drawWorld(){
  drawBackground();
  // zones
  rect(0,ground-2,1050,3,'#e2c78a');
- // town buildings
- for(let x=35;x<1040;x+=145){
-  let sx=x-cam;if(sx<-150||sx>W+20)continue;
-  rect(sx,ground-95,112,95,'#d6b27c');rect(sx-7,ground-102,126,13,'#9a5b48');
-  ctx.fillStyle='#9a5b48';ctx.beginPath();ctx.moveTo(sx-13,ground-102);ctx.lineTo(sx+56,ground-150);ctx.lineTo(sx+125,ground-102);ctx.fill();
-  rect(sx+43,ground-48,25,48,'#6d4936');rect(sx+12,ground-78,22,22,'#7bb8d0');rect(sx+78,ground-78,22,22,'#7bb8d0');rect(sx+10,ground-80,26,3,'#f3dfaa');rect(sx+76,ground-80,26,3,'#f3dfaa');rect(sx+2,ground-96,108,4,'#e9cf9b');
+ // Oakvale's upper terraces are the same collision platforms as before,
+ // now visibly supported by stonework and earth instead of floating in air.
+ for(const idx of [0,1,2,3,4]){
+  const p=platforms[idx],sx=p.x-cam;if(sx+p.w<-50||sx>W+50)continue;
+  const base=p.y+10,depth=ground-base;
+  // Recessed retaining wall with arched openings; the arches remain passable.
+  rect(sx+7,base,p.w-14,depth,'#8b806a');
+  rect(sx+13,base+5,p.w-26,Math.max(0,depth-8),'#a4987d');
+  for(let x=18;x<p.w-15;x+=25){rect(sx+x,base+10,2,Math.max(0,depth-12),'#796f60')}
+  for(let x=20;x<p.w-25;x+=52){
+   const ax=sx+x,ah=Math.min(46,depth-8);
+   ctx.fillStyle='#5e695c';ctx.beginPath();ctx.moveTo(ax,ground);ctx.lineTo(ax,ground-ah+12);ctx.quadraticCurveTo(ax+15,ground-ah-9,ax+30,ground-ah+12);ctx.lineTo(ax+30,ground);ctx.fill();
+   rect(ax+4,ground-17,22,3,'#756b5a');
+  }
+  rect(sx-5,p.y-7,p.w+10,10,'#648e54');rect(sx-5,p.y-7,p.w+10,3,'#c4df83');
+  for(let x=0;x<p.w;x+=24)rect(sx+x,p.y-4,12,2,'#8dbd68');
  }
- // inn sign
- text('OAKVALE',220-cam,ground-170,'#fff2b5','bold 20px system-ui');
+ // Vary the architecture: cottages, workshop, inn, and lookout on hilltops.
+ const homes=[
+  {x:86,y:350,w:102,h:77,wall:'#d8b789',roof:'#995b49',name:'COTTAGE'},
+  {x:226,y:ground,w:108,h:102,wall:'#b9a08a',roof:'#69586b',name:'FORGE'},
+  {x:297,y:315,w:102,h:79,wall:'#e0c399',roof:'#a05d51',name:'HILL HOUSE'},
+  {x:421,y:ground,w:108,h:109,wall:'#d9b18a',roof:'#6d7c8b',name:'MARKET'},
+  {x:506,y:360,w:94,h:79,wall:'#c9b4a1',roof:'#816076',name:'INN'},
+  {x:613,y:ground,w:100,h:101,wall:'#d6c19b',roof:'#9c6a4d',name:'HOME'},
+  {x:740,y:325,w:109,h:84,wall:'#b6c1a0',roof:'#586f69',name:'HERBALIST'},
+  {x:894,y:ground,w:110,h:108,wall:'#d8b888',roof:'#986b4b',name:'SCOUT POST'}
+ ];
+ for(const h of homes)drawTownHouse(h);
+ // Signpost and lanterns keep the main ground-level route readable.
+ text('OAKVALE',210-cam,ground-181,'#fff2b5','bold 20px system-ui');
+ for(const wx of [118,365,577,813,996]){
+  const x=wx-cam;if(x<-30||x>W+30)continue;
+  rect(x,ground-55,5,55,'#6d5948');rect(x-7,ground-58,19,6,'#55493b');
+  rect(x-6,ground-75,17,18,'#efc974');rect(x-3,ground-72,11,12,'#fff0ae');
+ }
  // forest transitions and trees
  for(let x=1080;x<2640;x+=72)drawTree(x,0.75+(x%4)*.09);
  // cave rocks
@@ -132,9 +158,37 @@ function drawWorld(){
  chests.forEach(c=>{let x=c.x-cam;if(x<-40||x>W+40)return;rect(x-15,ground-26,30,24,c.opened?'#8b6b4b':'#a46c36');rect(x-15,ground-26,30,6,'#e9bd59');rect(x-2,ground-19,5,8,'#f4e6a0');if(!c.opened)text('E',x-4,ground-36,'#fff2a5','bold 12px system-ui')});
  // raised platforms players can jump onto
  mushrooms.forEach(m=>{if(m.taken)return;let x=m.x-cam;if(x<-30||x>W+30)return;ctx.fillStyle='#e7f6a0';ctx.beginPath();ctx.arc(x,ground-8,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#bd6bda';ctx.beginPath();ctx.arc(x,ground-13,8,Math.PI,Math.PI*2);ctx.fill();text('E',x-4,ground-28,'#fff2a5','bold 11px system-ui')});
- platforms.forEach(p=>{let x=p.x-cam;if(x+p.w<0||x>W)return;rect(x,p.y,p.w,10,'#6c4935');rect(x,p.y,p.w,4,'#b9df83');rect(x,p.y+4,p.w,2,'#d7e9a0');for(let i=0;i<p.w;i+=18){rect(x+i,p.y+10,3,5,'#5a4636');rect(x+i+5,p.y+2,5,2,'#e5f4b2')}});
+ platforms.forEach((p,idx)=>{let x=p.x-cam;if(x+p.w<0||x>W)return;
+  if(idx<5){rect(x,p.y,p.w,8,'#88775e');rect(x,p.y,p.w,3,'#c6e18b');}
+  else if(p.x<2650){rect(x,p.y,p.w,12,'#78583b');rect(x,p.y,p.w,5,'#a5d77a');for(let i=0;i<p.w;i+=24){rect(x+i+5,p.y+11,5,14,'#665039');rect(x+i+7,p.y+25,2,8,'#7a6346')}}
+  else {rect(x,p.y,p.w,15,'#5d666e');rect(x,p.y,p.w,4,'#a3abb0');for(let i=8;i<p.w;i+=30){rect(x+i,p.y+7,17,3,'#7f8a92');rect(x+i+8,p.y+15,5,6,'#505a62')}}
+ });
  // ground cave/forest decoration
  for(let x=760;x<worldW;x+=170){let sx=x-cam;if(sx>0&&sx<W){rect(sx,ground-8,10,8,'#4f8d54');rect(sx+4,ground-13,5,6,'#65a85c')}}
+}
+function drawTownHouse(h){
+ const x=h.x-cam,y=h.y-h.h;if(x+h.w<-70||x>W+70)return;
+ rect(x,y,h.w,h.h,h.wall);rect(x+4,y+8,h.w-8,4,'#f3d9a5');
+ // Timber framing, layered roof shingles and a chimney.
+ rect(x+5,y+8,6,h.h-8,'#82624b');rect(x+h.w-11,y+8,6,h.h-8,'#82624b');
+ rect(x+h.w*.75,y-37,15,34,'#947f75');rect(x+h.w*.75-3,y-40,21,6,'#625b58');
+ ctx.fillStyle=h.roof;ctx.beginPath();ctx.moveTo(x-12,y+3);ctx.lineTo(x+h.w/2,y-39);ctx.lineTo(x+h.w+12,y+3);ctx.closePath();ctx.fill();
+ ctx.strokeStyle='#e8b48b';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x-8,y+2);ctx.lineTo(x+h.w/2,y-35);ctx.lineTo(x+h.w+8,y+2);ctx.stroke();
+ for(let i=0;i<4;i++)rect(x+15+i*22,y-5-i%2*4,15,2,'#ffffff33');
+ rect(x+h.w/2-13,h.y-45,26,45,'#644a39');rect(x+h.w/2-10,h.y-41,20,37,'#76513e');
+ rect(x+h.w/2+5,h.y-23,3,3,'#f1d17e');
+ for(const wx of [x+17,x+h.w-36]){
+  rect(wx,y+23,19,23,'#f4e0a1');rect(wx+3,y+26,13,17,'#86c4cf');
+  rect(wx+9,y+26,2,17,'#e7d9b7');rect(wx+2,y+33,15,2,'#e7d9b7');
+ }
+ rect(x+h.w/2-24,y+8,48,14,'#6c5545');
+ text(h.name,x+h.w/2-22,y+18,'#f9e7bd','bold 8px system-ui');
+ // Flowers, flower boxes, and low stone foundation.
+ rect(x+14,y+46,26,6,'#7a583d');rect(x+h.w-40,y+46,26,6,'#7a583d');
+ for(const fx of [x+20,x+29,x+h.w-32,x+h.w-23]){
+  rect(fx,y+43,2,5,'#4e8b50');rect(fx-2,y+41,6,4,'#e88e9a');
+ }
+ rect(x,h.y-5,h.w,5,'#887f6a');
 }
 function drawDoor(wx,label,color){let x=wx-cam;if(x<-80||x>W+80)return;rect(x-24,ground-80,48,80,color);ctx.fillStyle='#2b343d';ctx.beginPath();ctx.arc(x,ground-80,24,Math.PI,0);ctx.fill();text(label,x-42,ground-91,'#172b3c','bold 11px system-ui')}
 function drawPerson(x,y,color){rect(x-10,y+12,20,28,color);rect(x-9,y,18,17,'#edbd91');rect(x-11,y-3,22,7,'#634532');rect(x-8,y+40,7,5,'#463e3a');rect(x+2,y+40,7,5,'#463e3a')}
@@ -176,7 +230,7 @@ function update(dt){
  const left=keys.a||keys.arrowleft,right=keys.d||keys.arrowright;
  player.vx=0;if(left){player.vx=-190;player.face=-1}if(right){player.vx=190;player.face=1}
  if(player.attack>0)player.attack-=dt;if(player.special>0)player.special-=dt;if(player.invuln>0)player.invuln-=dt;
- if(player.dropTimer>0)player.dropTimer-=dt;if(player.specialCooldown>0)player.specialCooldown-=dt;if(player.guardCooldown>0)player.guardCooldown-=dt;if(player.guardTimer>0)player.guardTimer-=dt;
+ if(player.shotCooldown>0){player.shotCooldown=Math.max(0,player.shotCooldown-dt);if(player.shotCooldown===0&&player.class==='ranger')player.rangerShots=0}if(player.dropTimer>0)player.dropTimer-=dt;if(player.specialCooldown>0)player.specialCooldown-=dt;if(player.guardCooldown>0)player.guardCooldown-=dt;if(player.guardTimer>0)player.guardTimer-=dt;
  player.blocking=player.class==='fighter'&&!!keys.k; if(player.class!=='fighter'&&keys.k&&player.guardCooldown<=0){player.guardTimer=.55;player.guardCooldown=2.2;player.invuln=Math.max(player.invuln,.45)}
  player.x+=player.vx*dt;player.x=Math.max(8,Math.min(worldW-player.w,player.x));
  const oldBottom=player.y+player.h;
@@ -206,7 +260,7 @@ function update(dt){
  }
  // Update ranged projectiles and resolve each hit once.
  for(let i=projectiles.length-1;i>=0;i--){const p=projectiles[i];p.x+=p.vx*dt;p.life-=dt;let removed=p.life<=0||p.x<0||p.x>worldW;
-  if(!removed){for(const e of enemies){if(!e.alive||e.frozen>0&&p.kind==='ice'){} if(!e.alive)continue;
+  if(!removed){for(const e of enemies){if(!e.alive)continue;
    const nearX=p.x>=e.x-5&&p.x<=e.x+e.w+5;const nearY=Math.abs(p.y-(e.y+e.h/2))<Math.max(13,e.h*.45);
    if(nearX&&nearY){e.hp-=p.damage;e.hit=Math.max(e.hit,.25);if(p.kind==='ice')e.frozen=3.2;if(e.hp<=0)killEnemy(e);removed=true;toast(p.kind==='ice'?'Ice spell! Enemy frozen.':p.kind==='arrow'?'Arrow hit!':'Magic missile hit!');break;}
   }}if(removed)projectiles.splice(i,1);
@@ -216,20 +270,23 @@ function update(dt){
 }
 function attack(special=false){
  if(dialog||!gameStarted)return;
+ if(!special&&player.class!=='fighter'&&player.shotCooldown>0)return;
  if(special){if(player.specialCooldown>0)return;player.specialCooldown=player.class==='ranger'?2.6:player.class==='mage'?3.2:1.4;player.special=player.class==='fighter'?.9:.45}
  else player.attack=.22;
  if(player.class==='ranger'){
-  const count=special?5:1;for(let i=0;i<count;i++)projectiles.push({kind:'arrow',x:player.x+player.w/2+player.face*20,y:player.y+22+(special?(i-2)*5:0),vx:player.face*(special?540:470),dir:player.face,damage:special?player.atk*0.8:player.atk,life:1.45});
+  if(!special){player.rangerShots++;if(player.rangerShots>=3){player.shotCooldown=3;toast('Quiver reloading: 3 seconds')}}
+  const count=special?5:1;for(let i=0;i<count;i++)projectiles.push({kind:'arrow',x:player.x+player.w/2+player.face*20,y:player.y+22+(special?(i-2)*5:0),vx:player.face*(special?540:470),dir:player.face,damage:special?player.atk*0.55:player.atk*0.6,life:1.45});
   if(special)toast('Rapid Release!');return;
  }
  if(player.class==='mage'){
-  projectiles.push({kind:special?'ice':'magic',x:player.x+player.w/2+player.face*20,y:player.y+22,vx:player.face*(special?330:390),dir:player.face,damage:special?player.atk*1.5:player.atk,life:1.8});if(special)toast('Ice spell cast!');return;
+  if(!special)player.shotCooldown=1;
+  projectiles.push({kind:special?'ice':'magic',x:player.x+player.w/2+player.face*20,y:player.y+22,vx:player.face*(special?330:390),dir:player.face,damage:special?player.atk*1.2:player.atk*1.35,life:1.8});if(special)toast('Ice spell cast!');return;
  }
  let range=special?100:58;let hit=0;
- for(const e of enemies){if(!e.alive)continue;let dx=(e.x+e.w/2)-(player.x+player.w/2);if(Math.abs(dx)<=range&&Math.sign(dx||player.face)===player.face&&Math.abs((e.y+e.h/2)-(player.y+player.h/2))<100){e.hp-=special?player.atk*2.3:player.atk;if(e.hp<=0){e.alive=false;hit++;killEnemy(e)}}}
+ for(const e of enemies){if(!e.alive)continue;let dx=(e.x+e.w/2)-(player.x+player.w/2);if(Math.abs(dx)<=range&&Math.sign(dx||player.face)===player.face&&Math.abs((e.y+e.h/2)-(player.y+player.h/2))<100){e.hp-=special?player.atk*2.3:player.atk;if(e.hp<=0){hit++;killEnemy(e)}}}
  if(hit)toast('Monster defeated!');else if(special)toast('Special slash!');
 }
-function killEnemy(e){e.respawn=e.boss?25:8;player.xp+=e.boss?50:10;player.gold+=e.boss?30:2;if(e.type==='slime'&&quest.stage>=1&&quest.stage<=2)quest.slimes++;
+function killEnemy(e){if(!e.alive)return;e.alive=false;e.hp=0;e.respawn=e.boss?25:8;player.xp+=e.boss?50:10;player.gold+=e.boss?30:2;if(e.type==='slime'&&quest.stage>=1&&quest.stage<=2)quest.slimes++;
  if(e.type==='bat'&&quest.batsStarted&&!quest.batsDone)quest.bats++;
  if(player.xp>=player.level*30){player.xp-=player.level*30;player.level++;player.maxhp+=12;player.hp=player.maxhp;player.atk+=3;toast('Level up! You are level '+player.level)}
  if(e.boss){quest.caveBoss=true;toast('Cave guardian defeated! +50 EXP, +30 gold')}
@@ -264,7 +321,7 @@ function interact(){
 }
 function updateUI(){
  const className=player.class[0].toUpperCase()+player.class.slice(1);document.getElementById('level').textContent='Lv. '+player.level+' '+className;
- const abilityText=player.class==='ranger'?'<b>J</b> bow shot · <b>K</b> evasive guard · <b>L</b> rapid release':player.class==='mage'?'<b>J</b> magic missile · <b>K</b> arcane guard · <b>L</b> ice spell':'<b>J</b> sword slash · <b>K</b> block · <b>L</b> special spin attack';document.getElementById('abilityHelp').innerHTML=abilityText;
+ const abilityText=player.class==='ranger'?'<b>J</b> bow shot (3 shots, 3s reload) · <b>K</b> evasive guard · <b>L</b> rapid release':player.class==='mage'?'<b>J</b> magic missile (1s cooldown) · <b>K</b> arcane guard · <b>L</b> ice spell':'<b>J</b> sword slash · <b>K</b> block · <b>L</b> special spin attack';document.getElementById('abilityHelp').innerHTML=abilityText;
  document.getElementById('hp').style.width=(player.hp/player.maxhp*100)+'%';document.getElementById('hptext').textContent='HP '+player.hp+'/'+player.maxhp;
  document.getElementById('xp').style.width=(player.xp/(player.level*30)*100)+'%';document.getElementById('xptext').textContent=player.xp+' / '+(player.level*30);
  document.getElementById('gold').textContent=player.gold;
@@ -305,7 +362,7 @@ canvas.addEventListener('click',()=>{canvas.focus()});
 document.getElementById('close').addEventListener('click',closeDialog);
 // Buttons accessible via simple keyboard prompts; shops use B near merchant.
 for(const e of enemies){if(e.platformIndex!==undefined){const p=platforms[e.platformIndex];e.y=p.y-e.h;e.homeMin=p.x;e.homeMax=p.x+p.w-e.w} else {e.homeMin=e.x-90;e.homeMax=e.x+90}e.spawnX=e.x;e.spawnY=e.y;e.respawn=0;e.frozen=0}
-document.querySelectorAll('#classOptions button').forEach(btn=>btn.addEventListener('click',()=>{player.class=btn.dataset.class;gameStarted=true;document.getElementById('classSelect').style.display='none';toast(player.class[0].toUpperCase()+player.class.slice(1)+' selected. Adventure begins!');updateUI()}));
+document.querySelectorAll('#classOptions button').forEach(btn=>btn.addEventListener('click',()=>{player.class=btn.dataset.class;player.maxhp=player.class==='ranger'?140:player.class==='fighter'?100:70;player.hp=player.maxhp;player.shotCooldown=0;player.rangerShots=0;gameStarted=true;document.getElementById('classSelect').style.display='none';toast(player.class[0].toUpperCase()+player.class.slice(1)+' selected. Adventure begins!');updateUI()}));
 updateUI();requestAnimationFrame(loop);
 })();
 </script>
