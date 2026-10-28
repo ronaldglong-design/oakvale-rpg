@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Oakvale: A Tiny RPG</title>
+<style>
+:root{--ink:#f8f4df;--panel:#172335eF;--gold:#ffd56a;--green:#72d58a}
+*{box-sizing:border-box} body{margin:0;background:#101827;color:var(--ink);font:15px system-ui, sans-serif;display:flex;justify-content:center;min-height:100vh}
+main{width:min(1100px,100%);padding:14px}
+h1{font-size:clamp(20px,3vw,30px);margin:0 0 5px} .sub{color:#c2cfe0;font-size:13px;margin-bottom:12px}
+#game{position:relative;border:3px solid #52667c;border-radius:12px;overflow:hidden;background:#9ad8ed;box-shadow:0 16px 50px #0008}
+canvas{display:block;width:100%;height:auto;image-rendering:pixelated;touch-action:none}
+.hud{position:absolute;left:12px;top:12px;display:flex;gap:8px;flex-wrap:wrap;max-width:75%;pointer-events:none}
+.pill{background:#132238eF;border:1px solid #62748b;border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 2px 0 #0003}
+.bar{height:8px;background:#4c2430;border-radius:8px;overflow:hidden;width:130px;margin-top:3px}.bar>i{display:block;height:100%;background:#f36b75;width:100%}.xpbar{background:#263c53}.xpbar i{background:#ffd56a}
+#hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#132238eF;border:1px solid #62748b;border-radius:8px;padding:7px 12px;text-align:center;font-size:12px;max-width:90%;white-space:nowrap}
+#classSelect{position:absolute;inset:0;background:#101827eF;z-index:8;display:flex;align-items:center;justify-content:center;padding:18px}#classSelect .choose{width:min(760px,100%);background:#19263a;border:2px solid #e9c76b;border-radius:14px;padding:20px;box-shadow:0 12px 40px #0009}#classSelect h2{margin:0 0 6px;color:#ffd56a}#classSelect p{margin:0 0 14px;color:#d4deeb}#classOptions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}#classOptions button{min-height:115px;text-align:left;white-space:normal;line-height:1.4;border:2px solid #a98b47}#classOptions button span{display:block;font-size:18px;margin-bottom:6px}@media(max-width:600px){#classOptions{grid-template-columns:1fr}#classOptions button{min-height:70px}}#dialog{display:none;position:absolute;left:50%;bottom:50px;transform:translateX(-50%);width:min(560px,92%);background:#111e31f5;border:2px solid #e8c875;border-radius:10px;padding:14px;box-shadow:0 8px 30px #0008}
+#dialog strong{color:#ffd56a;display:block;margin-bottom:5px}#dialog p{margin:0 0 10px;line-height:1.4}#dialog button{float:right}#dialogChoices{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}#dialogChoices button{float:none;background:#344c65;color:#fff;border:1px solid #b9c7d3;border-radius:7px;padding:8px 10px;cursor:pointer}#dialogChoices button:hover{background:#526f8c}
+button{cursor:pointer;background:#e9c76b;color:#1d2431;border:0;border-radius:7px;padding:8px 12px;font-weight:750}button:hover{filter:brightness(1.08)}
+#side{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:10px;margin-top:10px}
+.card{background:#19263a;border:1px solid #34455c;border-radius:10px;padding:11px;min-height:110px}.card h2{font-size:14px;color:#ffd56a;margin:0 0 7px}.card p{margin:4px 0;color:#d4deeb;font-size:13px;line-height:1.4}
+#quest{font-size:13px;line-height:1.45}.small{font-size:12px;color:#b8c8dc}
+#gearPanel{display:none;position:absolute;inset:35px 8%;background:#101d31fa;border:2px solid #e9c76b;border-radius:12px;z-index:7;padding:18px;overflow:auto;box-shadow:0 12px 35px #000a}#gearPanel h2{color:#ffd56a;margin:0 0 8px}#gearPanel button{margin:3px;padding:6px 9px}#gearPanel .gearitem{padding:8px;border-bottom:1px solid #42516a}#gearPanel .equipped{color:#8ee1a5}#journalPanel{display:none;position:absolute;inset:45px 10%;background:#101d31f5;border:2px solid #e9c76b;border-radius:12px;z-index:7;padding:20px;overflow:auto;box-shadow:0 12px 35px #000a}#journalPanel h2{color:#ffd56a;margin-top:0}#journalPanel li{margin:8px 0}#journalPanel .done{color:#8ee1a5}#journalPanel .pending{color:#f1d78a}.progressActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.progressActions button{font-size:12px}#pauseMenu{display:none;position:absolute;inset:0;z-index:12;background:#0b1321c9;align-items:center;justify-content:center;padding:18px}#pauseMenu .pauseCard{width:min(370px,95%);background:#19263a;border:2px solid #e9c76b;border-radius:14px;padding:22px;text-align:center;box-shadow:0 16px 45px #000b}#pauseMenu h2{color:#ffd56a;margin:0 0 8px}#pauseMenu p{font-size:13px;color:#d4deeb;line-height:1.5}#pauseMenu .pauseActions{display:flex;flex-direction:column;gap:10px;margin-top:18px}#pauseMenu button{font-size:14px}#pauseMenu .danger{background:#e78d88}#pauseMenu .confirm{display:none;border-top:1px solid #52667c;margin-top:16px;padding-top:12px}#pauseMenu .confirmActions{display:flex;gap:10px;justify-content:center}#message{position:absolute;right:12px;top:12px;background:#132238eF;border:1px solid #62748b;border-radius:8px;padding:8px 10px;max-width:230px;display:none;font-size:12px}
+@media(max-width:680px){#side{grid-template-columns:1fr}#hint{font-size:10px}.hud{max-width:90%}.bar{width:95px}}
+</style>
+</head>
+<body><main>
+<h1>Oakvale: A Tiny RPG</h1>
+<div class="sub">A side-scrolling fantasy adventure. Explore Oakvale, discover the Hollow King's trail, and venture beyond the mountain.</div>
+<div id="game">
+<canvas id="c" width="960" height="540" aria-label="Oakvale side scrolling RPG game"></canvas>
+<div class="hud">
+ <div class="pill"><b id="level">Lv. 1 Fighter</b><div class="bar"><i id="hp"></i></div><div class="small" id="hptext">HP 100/100</div></div>
+ <div class="pill">EXP <div class="bar xpbar"><i id="xp"></i></div><div class="small" id="xptext">0 / 30</div></div>
+ <div class="pill">Gold: <b id="gold">10</b></div>
+</div>
+<div id="message"></div>
+<div id="pauseMenu" role="dialog" aria-modal="true" aria-labelledby="pauseTitle"><div class="pauseCard"><h2 id="pauseTitle">Adventure Paused</h2><p>Take a break, save your progress, or begin a new adventure.</p><div class="pauseActions"><button id="resumeGame">Resume [Esc]</button><button id="pauseSave">Save Adventure</button><button id="pauseNew" class="danger">Start New Game</button></div><div id="newConfirm" class="confirm"><p><strong>Are you sure?</strong> Starting a new game permanently erases your saved character, equipment, and quest progress in this browser.</p><div class="confirmActions"><button id="cancelNew">Cancel</button><button id="confirmNew" class="danger">Yes, Erase &amp; Restart</button></div></div></div></div>
+<div id="classSelect"><div class="choose"><h2>Choose Your Adventurer</h2><p>Pick a class. You can start a new adventure with any of the three play styles.</p><div id="classOptions"><button data-class="fighter"><span>⚔ Fighter</span>Close-range sword attacks, block, and a spinning special.</button><button data-class="ranger"><span>➶ Ranger</span>Ranged bow shots, evasive guard, and rapid arrow release.</button><button data-class="mage"><span>✦ Mage</span>Magic missiles, arcane guard, and an ice spell that freezes enemies.</button></div></div></div>
+<div id="gearPanel"><button id="closeGear" style="float:right">Close [I]</button><h2>Inventory & Equipment</h2><div id="gearContent"></div></div>
+<div id="journalPanel"><button id="closeJournal" style="float:right">Close [Q]</button><h2>Adventure Journal</h2><div id="journalContent"></div></div>
+<div id="dialog"><strong id="speaker">Wise Guide</strong><p id="words"></p><div id="dialogChoices"></div><button id="close">Continue [E]</button><div style="clear:both"></div></div>
+<div id="hint">A/D move · W jump · S drop down · J attack · K block · L special · E interact · I equipment · H potion · Q journal · Esc pause/menu</div>
+</div>
+<div id="side">
+ <section class="card"><h2>Current Quest</h2><div id="quest">Talk to the Wise Guide in town.</div><p class="small">Press Q for your quest journal.</p><div class="progressActions"><button id="journalButton">Journal [Q]</button><button id="saveButton">Save</button><button id="resetButton">New Game</button></div><p class="small" id="saveStatus">Progress saves automatically.</p></section>
+ <section class="card"><h2>Inventory & Gear</h2><div id="inventory">Rusty Sword · Simple Tunic · 2 Health Potions</div><p class="small">Press I to equip loot and inspect gear.</p><div class="progressActions"><button id="gearButton">Equipment [I]</button></div></section>
+ <section class="card"><h2>Controls & Tips</h2><p id="abilityHelp"><b>J</b> sword slash · <b>K</b> block · <b>L</b> special spin attack</p><p><b>W</b> jump onto raised platforms · <b>S</b> drop down through them.</p><p><b>E</b> talk, enter shops, open chests, and use signs.</p><p>Defeat slimes for EXP. Travel east through the forest, cave, mountain pass, and forgotten ruins.</p></section>
+</div>
+</main>
+<script>
+(()=>{
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const W=960,H=540,worldW=7100,ground=438;
+let keys={},cam=0,dialog=null,toastTimer=0,toastText='',last=0,projectiles=[],gameStarted=false,pauseOpen=false,rewardFloats=[];
+let player={x:110,y:230-48,w:28,h:48,vx:0,vy:0,face:1,hp:100,maxhp:100,level:1,xp:0,gold:10,atk:12,blocking:false,attack:0,special:0,invuln:0,potions:2,mushrooms:0,dropTimer:0,class:'fighter',specialCooldown:0,guardCooldown:0,guardTimer:0,shotCooldown:0,rangerShots:0};
+let saveClock=0,journalOpen=false,skillPoints=0,saveVersion=3;
+let story={clue:false,passCleared:false,ruinKey:false,ruinsCleared:false,hiddenFound:0};
+const SAVE_KEY='oakvale-milestone3-save';
+// Milestone 5: item catalogue, equipment and monster loot.
+const itemDefs={
+ 'rusty-sword':{name:'Rusty Sword',slot:'weapon',rarity:'Common',atk:0},
+ 'simple-tunic':{name:'Simple Tunic',slot:'armor',rarity:'Common',hp:0,def:0},
+ 'hunter-bow':{name:'Hunter’s Bow',slot:'weapon',rarity:'Uncommon',class:'ranger',atk:4},
+ 'apprentice-blade':{name:'Apprentice Blade',slot:'weapon',rarity:'Uncommon',class:'fighter',atk:5},
+ 'oak-staff':{name:'Oak Staff',slot:'weapon',rarity:'Uncommon',class:'mage',atk:5},
+ 'iron-blade':{name:'Ironwood Sword',slot:'weapon',rarity:'Rare',class:'fighter',atk:10},
+ 'wind-bow':{name:'Windrunner Bow',slot:'weapon',rarity:'Rare',class:'ranger',atk:9},
+ 'crystal-staff':{name:'Crystal Staff',slot:'weapon',rarity:'Rare',class:'mage',atk:11},
+ 'leather-vest':{name:'Leather Vest',slot:'armor',rarity:'Uncommon',hp:12,def:1},
+ 'guardian-mail':{name:'Guardian Mail',slot:'armor',rarity:'Rare',hp:30,def:3},
+ 'oakvale-plate':{name:'Oakvale Guardian Armor',slot:'armor',rarity:'Epic',hp:45,def:5},
+ 'copper-ring':{name:'Copper Ring',slot:'accessory',rarity:'Uncommon',hp:8,atk:1},
+ 'frost-pendant':{name:'Frost Pendant',slot:'accessory',rarity:'Rare',hp:15,atk:3},
+ 'kings-emblem':{name:'Hollow King Emblem',slot:'accessory',rarity:'Epic',hp:25,atk:6,def:2}
+};
+let ownedGear=[],equippedGear={weapon:null,armor:null,accessory:null},gearOpen=false;
+const rarityColors={Common:'#dce1e9',Uncommon:'#83e6a4',Rare:'#8cc9ff',Epic:'#e2a3ff'};
+function gearStats(){let atk=0,hp=0,def=0;for(const id of Object.values(equippedGear)){const item=itemDefs[id];if(item){atk+=item.atk||0;hp+=item.hp||0;def+=item.def||0}}return {atk,hp,def}}
+function combatAttack(){return player.atk+gearStats().atk}
+function addGear(id,announce=true){if(!itemDefs[id])return false;ownedGear.push(id);if(announce)toast('Loot found: '+itemDefs[id].name+'! Press I to equip.');renderGear();updateUI();return true}
+function equipGear(index){const id=ownedGear[index],item=itemDefs[id];if(!item)return;if(item.class&&item.class!==player.class){toast('Only '+item.class+' characters can equip this weapon.');return}const slot=item.slot,old=equippedGear[slot],oldHp=gearStats().hp;equippedGear[slot]=id;ownedGear.splice(index,1);if(old)ownedGear.push(old);const diff=gearStats().hp-oldHp;player.maxhp+=diff;player.hp=Math.min(player.maxhp,Math.max(1,player.hp+Math.max(0,diff)));renderGear();updateUI();toast('Equipped '+item.name)}
+function renderGear(){const stats=gearStats(),fmt=id=>id?itemDefs[id].name:'Empty';document.getElementById('gearContent').innerHTML='<p>Level '+player.level+' '+player.class+' · Gold '+player.gold+' · Potions '+player.potions+' · Moon-mushrooms '+player.mushrooms+'</p><p><b>Equipment bonuses:</b> +'+stats.atk+' attack · +'+stats.hp+' max HP · '+stats.def+' defense</p><h3>Equipped</h3>'+Object.keys(equippedGear).map(slot=>'<div class="gearitem equipped">'+slot.toUpperCase()+': '+fmt(equippedGear[slot])+'</div>').join('')+'<h3>Backpack ('+ownedGear.length+' items)</h3>'+(ownedGear.length?ownedGear.map((id,i)=>{const it=itemDefs[id];return '<div class="gearitem"><span style="color:'+rarityColors[it.rarity]+'">'+it.name+' · '+it.rarity+'</span> ('+it.slot+(it.class?', '+it.class:'')+') · '+[it.atk?'+'+it.atk+' ATK':'',it.hp?'+'+it.hp+' HP':'',it.def?'+'+it.def+' DEF':''].filter(Boolean).join(', ')+' <button data-equip="'+i+'">Equip</button></div>'}).join(''):'<p>No spare equipment yet. Defeat monsters, open chests, or visit the blacksmith.</p>')+'<p class="small">Gear bonuses are applied on top of class stats. Weapons are class-specific where indicated.</p>';document.querySelectorAll('[data-equip]').forEach(b=>b.onclick=()=>equipGear(Number(b.dataset.equip)))}
+function toggleGear(force){gearOpen=typeof force==='boolean'?force:!gearOpen;document.getElementById('gearPanel').style.display=gearOpen?'block':'none';if(gearOpen){toggleJournal(false);renderGear()}}
+function rollLoot(e){let id=null;if(e.boss){id=e.type==='warden'?'kings-emblem':e.type==='sentinel'?'guardian-mail':player.class==='mage'?'crystal-staff':player.class==='ranger'?'wind-bow':'iron-blade'}else{const roll=Math.random();if(roll<.11){const pool=e.type==='bat'?['copper-ring','leather-vest']:e.type==='mushroom'?['frost-pendant','leather-vest']:['leather-vest','copper-ring'];id=pool[Math.floor(Math.random()*pool.length)]}else if(roll<.20){player.potions++;return 'Health Potion'}}if(id){addGear(id,false);return itemDefs[id].name}return null}
+function rewardPopup(xp,gold,item){const lines=[];if(xp>0)lines.push({label:'+'+xp+' EXP',color:'#ffe18a'});if(gold>0)lines.push({label:'+'+gold+' Gold',color:'#ffcb64'});if(item)lines.push({label:'+'+item,color:'#9bf4c6'});if(!lines.length)return;rewardFloats.push({lines,life:1,maxLife:1});if(rewardFloats.length>5)rewardFloats.shift()}
+function drawRewardPopups(){for(let i=0;i<rewardFloats.length;i++){const f=rewardFloats[i],alpha=Math.min(1,f.life/.36),rise=(1-f.life)*25;ctx.save();ctx.globalAlpha=alpha;ctx.textAlign='center';ctx.font='bold 15px system-ui';const cx=Math.max(95,Math.min(W-95,player.x+player.w/2-cam)),base=Math.max(48,player.y-31-rise-i*9);f.lines.forEach((line,j)=>{const y=base+j*20;ctx.lineWidth=4;ctx.strokeStyle='#102137';ctx.strokeText(line.label,cx,y);ctx.fillStyle=line.color;ctx.fillText(line.label,cx,y)});ctx.restore()}}
+
+const classBase={fighter:{hp:100,atk:12},ranger:{hp:140,atk:12},mage:{hp:70,atk:12}};
+const skillNames={fighter:['Heavy Strike','Iron Will','Whirlwind Mastery'],ranger:['Longshot','Stronger Arrows','Arrow Storm'],mage:['Arcane Focus','Frost Mastery','Winter Nova']};
+function xpNeeded(level){return level*30}
+function gainXP(amount){if(player.level>=10){player.xp=0;return}player.xp+=amount;while(player.level<10&&player.xp>=xpNeeded(player.level)){player.xp-=xpNeeded(player.level);player.level++;player.maxhp+=player.class==='ranger'?16:player.class==='fighter'?12:8;player.hp=player.maxhp;player.atk+=player.class==='mage'?4:3;skillPoints++;toast('Level '+player.level+'! New skill point earned.')}if(player.level>=10)player.xp=0}
+function skillTier(){return player.level>=10?3:player.level>=5?2:player.level>=3?1:0}
+function saveGame(silent=true){if(!gameStarted)return;try{const state={version:saveVersion,player:{...player},quest:{...quest},chests:chests.map(c=>c.opened),mushrooms:mushrooms.map(m=>m.taken),skillPoints,story:{...story},secretCaches:secretCaches.map(c=>c.opened),ownedGear:[...ownedGear],equippedGear:{...equippedGear}};localStorage.setItem(SAVE_KEY,JSON.stringify(state));document.getElementById('saveStatus').textContent='Saved locally in this browser.';if(!silent)toast('Adventure saved!')}catch(err){document.getElementById('saveStatus').textContent='Browser storage unavailable.';if(!silent)toast('Could not save in this browser.')}}
+function loadGame(){try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)return false;const state=JSON.parse(raw);if(state.version!==saveVersion||!classBase[state.player?.class])return false;Object.assign(player,state.player);Object.assign(quest,state.quest);ownedGear=Array.isArray(state.ownedGear)?state.ownedGear.filter(id=>itemDefs[id]):[];equippedGear={weapon:null,armor:null,accessory:null,...(state.equippedGear||{})};for(const slot of Object.keys(equippedGear)){if(!itemDefs[equippedGear[slot]]||itemDefs[equippedGear[slot]].slot!==slot)equippedGear[slot]=null;} /* Older saves had no gear; their stats remain unchanged. */skillPoints=state.skillPoints||0;Object.assign(story,state.story||{});secretCaches.forEach((c,i)=>c.opened=!!state.secretCaches?.[i]);chests.forEach((c,i)=>c.opened=!!state.chests?.[i]);mushrooms.forEach((m,i)=>m.taken=!!state.mushrooms?.[i]);player.level=Math.max(1,Math.min(10,player.level));player.x=Math.max(8,Math.min(worldW-player.w,player.x));player.y=Math.min(ground-player.h,player.y);player.hp=Math.max(1,Math.min(player.maxhp,player.hp));player.attack=0;player.special=0;player.invuln=0;player.guardTimer=0;player.blocking=false;player.shotCooldown=0;player.rangerShots=0;projectiles=[];enemies.forEach(e=>{if((e.type==='golem'&&story.clue)||(e.type==='sentinel'&&story.passCleared)||(e.type==='warden'&&story.ruinsCleared)){e.alive=false;e.hp=0}});return true}catch(err){return false}}
+function toggleJournal(force){journalOpen=typeof force==='boolean'?force:!journalOpen;document.getElementById('journalPanel').style.display=journalOpen?'block':'none';if(journalOpen)renderJournal()}
+function renderJournal(){const tasks=[['Meet the Wise Guide',quest.stage>0,'Talk to the guide in Oakvale.'],['Clear the Whispering Woods',quest.stage>=2,'Defeat five slimes ('+Math.min(5,quest.slimes)+'/5), then report to the guide.'],['Explore Oldstone Cave',quest.caveBoss,'Find and defeat the cave guardian.'],['Help Mira the Herbalist',quest.herbsDone,'Collect four moon-mushrooms ('+player.mushrooms+' in inventory) and return to Mira.'],['Help Rook the Scout',quest.batsDone,'Defeat three bats ('+Math.min(3,quest.bats)+'/3) and report back.'],['The Hollow King: First Clue',story.clue,'Find the cave guardian’s ancient sigil.'],['Rocky Pass',story.passCleared,'Defeat the pass sentinel beyond the cave.'],['The Forgotten Ruins',story.ruinsCleared,'Find the ruin key and defeat the Hollow Warden.'],['Hidden Treasures',story.hiddenFound>=3,'Discover hidden caches ('+story.hiddenFound+'/3).']];const tier=skillTier(),names=skillNames[player.class];document.getElementById('journalContent').innerHTML='<h3>Quests</h3><ul>'+tasks.map(([name,done,detail])=>'<li class="'+(done?'done':'pending')+'">'+(done?'✓ ':'○ ')+name+'<div class="small">'+detail+'</div></li>').join('')+'</ul><h3>Class Progression</h3><p>Level '+player.level+'/10 · '+skillPoints+' skill point(s) earned · '+(player.level>=10?'Maximum level reached':player.xp+'/'+xpNeeded(player.level)+' XP toward next level')+'</p><ul>'+names.map((name,i)=>'<li class="'+(tier>=i+1?'done':'pending')+'">Level '+[3,5,10][i]+': '+name+(tier>=i+1?' ✓ Unlocked':' · Locked')+'</li>').join('')+'</ul><p class="small">Skills unlock automatically at the indicated levels. Earned skill points are a progression tally; upgrades activate automatically.</p>'}
+let quest={stage:0,slimes:0,mushrooms:0,caveBoss:false,batsStarted:false,bats:0,batsDone:false,herbsStarted:false,herbs:0,herbsDone:false};
+// Walkable raised platforms across town, woods, and cave. Coordinates use world space.
+const platforms=[
+ {x:60,y:230,w:280},{x:350,y:320,w:365},{x:735,y:230,w:280},{x:60,y:350,w:160},{x:780,y:350,w:165},
+ {x:1150,y:350,w:120},{x:1330,y:300,w:135},{x:1530,y:345,w:115},{x:1740,y:280,w:130},{x:1950,y:335,w:145},{x:2180,y:295,w:120},{x:2400,y:350,w:135},
+ {x:2740,y:350,w:125},{x:2940,y:310,w:130},{x:3160,y:355,w:115},{x:3370,y:285,w:145},{x:3610,y:335,w:130},{x:3830,y:300,w:135},{x:4050,y:355,w:120},{x:4260,y:315,w:140},{x:4500,y:350,w:125},
+ {x:4880,y:350,w:135},{x:5080,y:310,w:140},{x:5310,y:350,w:130},{x:5520,y:300,w:145},{x:5750,y:355,w:135},
+ {x:6010,y:345,w:140},{x:6240,y:300,w:135},{x:6460,y:355,w:145},{x:6720,y:310,w:135},{x:6900,y:355,w:130},
+ {x:310,y:275,w:95},{x:695,y:275,w:90},{x:535,y:388,w:130},{x:900,y:390,w:115}
+];
+let enemies=[
+ {type:'slime',x:1190,y:ground-28,w:32,h:28,hp:24,max:24,alive:true,dir:-1,hit:0,platformIndex:5},
+ {type:'bat',x:1390,y:ground-130,w:30,h:22,hp:16,max:16,alive:true,dir:1,hit:0},
+ {type:'slime',x:1630,y:ground-28,w:32,h:28,hp:24,max:24,alive:true,dir:-1,hit:0,platformIndex:7},
+ {type:'mushroom',x:1970,y:ground-34,w:30,h:34,hp:32,max:32,alive:true,dir:-1,hit:0,platformIndex:9},
+ {type:'slime',x:2250,y:ground-28,w:32,h:28,hp:28,max:28,alive:true,dir:1,hit:0},
+ {type:'bat',x:2450,y:ground-150,w:30,h:22,hp:20,max:20,alive:true,dir:-1,hit:0},
+ {type:'stone',x:2960,y:278,w:36,h:32,hp:42,max:42,alive:true,dir:1,hit:0,platformIndex:13},
+ {type:'bat',x:3290,y:ground-145,w:30,h:22,hp:24,max:24,alive:true,dir:-1,hit:0},
+ {type:'mushroom',x:3650,y:301,w:30,h:34,hp:38,max:38,alive:true,dir:1,hit:0,platformIndex:17},
+ {type:'slime',x:3910,y:ground-28,w:34,h:28,hp:34,max:34,alive:true,dir:-1,hit:0,platformIndex:18},
+ {type:'golem',x:4520,y:ground-58,w:52,h:58,hp:110,max:110,alive:true,dir:-1,hit:0,boss:true},
+ {type:'stone',x:4900,y:ground-32,w:36,h:32,hp:48,max:48,alive:true,dir:1,hit:0,platformIndex:21},
+ {type:'bat',x:5150,y:ground-145,w:30,h:22,hp:30,max:30,alive:true,dir:-1,hit:0},
+ {type:'mushroom',x:5360,y:ground-34,w:30,h:34,hp:58,max:58,alive:true,dir:-1,hit:0,platformIndex:23},
+ {type:'sentinel',x:5680,y:ground-65,w:48,h:65,hp:145,max:145,alive:true,dir:-1,hit:0,boss:true},
+ {type:'bat',x:6120,y:ground-150,w:30,h:22,hp:38,max:38,alive:true,dir:1,hit:0},
+ {type:'stone',x:6290,y:ground-32,w:36,h:32,hp:68,max:68,alive:true,dir:-1,hit:0,platformIndex:27},
+ {type:'mushroom',x:6600,y:ground-34,w:30,h:34,hp:70,max:70,alive:true,dir:1,hit:0},
+ {type:'warden',x:6940,y:ground-78,w:62,h:78,hp:230,max:230,alive:true,dir:-1,hit:0,boss:true}
+];
+const npcs=[
+ {x:170,y:230,name:'Wise Guide',role:'guide',color:'#8ac6a1'},
+ {x:290,y:230,name:'Blacksmith',role:'smith',color:'#db9162'},
+ {x:390,y:320,name:'Innkeeper',role:'inn',color:'#c68de0'},
+ {x:500,y:320,name:'Item Merchant',role:'shop',color:'#e4cb72'},
+ {x:640,y:320,name:'Town Guard',role:'guard',color:'#91aee8'},
+ {x:790,y:230,name:'Mira the Herbalist',role:'herbquest',color:'#7bc6a0'},
+ {x:930,y:ground,name:'Rook the Scout',role:'batquest',color:'#d7a16c'}
+];
+const signs=[{x:1080,text:'Whispering Woods →'},{x:2650,text:'Oldstone Cave →'},{x:4800,text:'Rocky Pass →'},{x:5930,text:'Forgotten Ruins →'}];
+const chests=[{x:2350,opened:false},{x:4250,opened:false},{x:5140,opened:false},{x:6200,opened:false},{x:6710,opened:false}];
+const secretCaches=[{x:5025,opened:false},{x:5890,opened:false},{x:6540,opened:false}];
+const mushrooms=[{x:1280,taken:false},{x:1510,taken:false},{x:1810,taken:false},{x:2120,taken:false},{x:2440,taken:false}];
+function say(name,text){dialog={name,text};document.getElementById('speaker').textContent=name;document.getElementById('words').textContent=text;document.getElementById('dialogChoices').replaceChildren();document.getElementById('dialog').style.display='block';}
+function closeDialog(){dialog=null;document.getElementById('dialog').style.display='none';}
+const npcFlavor={
+ guide:[['About Oakvale','Oakvale was built on three old terraces. The high walkways were once watch posts, but these days they mostly keep the goats out of my garden.'],['Any rumors?','Travelers speak of purple lights beyond the mountain. I would call it nonsense, if the bats had not started fleeing the caves.']],
+ smith:[['How is business?','Adventurers are good for business and terrible for inventory. I have forged more swords this week than horseshoes all season.'],['Your best work?','A blade for the old captain. Balanced perfectly. He used it to slice a birthday cake. I have never forgiven him.']],
+ inn:[['Tell me about the inn','Three beds, two blankets, and the finest turnip stew in Oakvale. The stew is better than that sounds.'],['Hear any gossip?','The scout insists the forest moves at night. I say he should stop drinking coffee before his patrols.']],
+ shop:[['What sells well?','Potions, rope, and snacks. Mostly snacks. Every hero thinks they are buying provisions for a grand expedition.'],['Any advice?','Never spend your last coin on a fancy hat. Unless it is a truly magnificent hat.']],
+ guard:[['How is the town?','Quiet enough on the lower road. Up on the terraces, though, the blacksmith keeps dropping tools on my helmet.'],['Any danger nearby?','Keep east if you want trouble. Keep west if you want supper. I know which one I would choose.']],
+ herbquest:[['About your remedies','Moon-mushrooms glow when the air is damp. I use them in tonics, although I still cannot convince the innkeeper to stop putting them in soup.'],['What is the forest like?','Listen for the birds. When they fall silent, something large is moving nearby. And do not touch the purple berries.']],
+ batquest:[['Tell me about yourself','I have walked every trail from here to Oldstone. I know every shortcut, and I still manage to get lost before breakfast.'],['What have you seen?','Bats are leaving the cave in daylight. Something deeper inside must be frightening them. That worries me more than the bats.']]
+};
+function npcMenu(n){say(n.name,({guide:'The view is better from up here. What can I help you with?',smith:'Mind the sparks! Need something?',inn:'Welcome in, traveler. Sit a spell.',shop:'Everything a traveler needs, except good judgment.',guard:'Keeping watch. And trying to stay awake.',herbquest:'The hills have been generous with herbs this season.',batquest:'Back from the trails. What would you like to know?'})[n.role]||'Good day!');const options=[['Quest / Services',()=>npcQuest(n)],...(npcFlavor[n.role]||[]).map(([label,answer])=>[label,()=>{say(n.name,answer);addDialogChoice('Back to topics',()=>npcMenu(n))}])];for(const [label,fn] of options)addDialogChoice(label,fn)}
+function addDialogChoice(label,fn){const b=document.createElement('button');b.textContent=label;b.onclick=fn;document.getElementById('dialogChoices').appendChild(b)}
+function toast(t){toastText=t;toastTimer=2.5;const el=document.getElementById('message');el.textContent=t;el.style.display='block';}
+document.getElementById('close').onclick=()=>{closeDialog()};
+function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),w,h)}
+function text(t,x,y,color='#fff',font='14px system-ui'){ctx.fillStyle=color;ctx.font=font;ctx.fillText(t,x,y)}
+function drawBackground(){
+ const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#8bd4ed');sky.addColorStop(1,'#e4f4cb');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+ // distant hills
+ for(let i=0;i<8;i++){let x=i*180-(cam*.18%180);ctx.fillStyle=i%2?'#92c9a2':'#7fbc9d';ctx.beginPath();ctx.ellipse(x,360,140,110,0,0,Math.PI*2);ctx.fill()}
+ // clouds
+ for(let i=0;i<6;i++){let x=(i*220-cam*.08+120)%(W+100);ctx.fillStyle='#ffffff8a';ctx.beginPath();ctx.arc(x,80+i%3*25,22,0,Math.PI*2);ctx.arc(x+25,75+i%3*25,30,0,Math.PI*2);ctx.arc(x+50,83+i%3*25,21,0,Math.PI*2);ctx.fill()}
+ // terrain segments
+ rect(0,ground,W,H-ground,'#6d9b52');rect(0,ground,W,8,'#a5c96a');
+ for(let i=0;i<70;i++){let x=(i*43-cam*.6%43);rect(x,ground+15+(i%4)*13,14,3,i%2?'#5a8545':'#7eac59')}
+}
+function drawTree(wx,scale=1){let x=wx-cam;if(x<-80||x>W+80)return;rect(x-5,ground-85*scale,10*scale,85*scale,'#76513c');ctx.fillStyle='#2f8054';ctx.beginPath();ctx.arc(x,ground-96*scale,35*scale,0,Math.PI*2);ctx.fill();ctx.fillStyle='#4ca566';ctx.beginPath();ctx.arc(x-15*scale,ground-108*scale,21*scale,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(x+15*scale,ground-104*scale,20*scale,0,Math.PI*2);ctx.fill()}
+function drawWorld(){
+ drawBackground();
+ // zones
+ rect(0,ground-2,1050,3,'#e2c78a');
+ // Oakvale's upper terraces are the same collision platforms as before,
+ // now visibly supported by stonework and earth instead of floating in air.
+ for(const idx of [0,1,2,3,4]){
+  const p=platforms[idx],sx=p.x-cam;if(sx+p.w<-50||sx>W+50)continue;
+  const base=p.y+10,depth=ground-base;
+  // Recessed retaining wall with arched openings; the arches remain passable.
+  rect(sx+7,base,p.w-14,depth,'#8b806a');
+  rect(sx+13,base+5,p.w-26,Math.max(0,depth-8),'#a4987d');
+  for(let x=18;x<p.w-15;x+=25){rect(sx+x,base+10,2,Math.max(0,depth-12),'#796f60')}
+  for(let x=20;x<p.w-25;x+=52){
+   const ax=sx+x,ah=Math.min(46,depth-8);
+   ctx.fillStyle='#5e695c';ctx.beginPath();ctx.moveTo(ax,ground);ctx.lineTo(ax,ground-ah+12);ctx.quadraticCurveTo(ax+15,ground-ah-9,ax+30,ground-ah+12);ctx.lineTo(ax+30,ground);ctx.fill();
+   rect(ax+4,ground-17,22,3,'#756b5a');
+  }
+  rect(sx-5,p.y-7,p.w+10,10,'#648e54');rect(sx-5,p.y-7,p.w+10,3,'#c4df83');
+  for(let x=0;x<p.w;x+=24)rect(sx+x,p.y-4,12,2,'#8dbd68');
+ }
+ // Vary the architecture: cottages, workshop, inn, and lookout on hilltops.
+ const homes=[
+  {x:86,y:230,w:102,h:77,wall:'#d8b789',roof:'#995b49',name:'COTTAGE'},
+  {x:350,y:320,w:108,h:102,wall:'#b9a08a',roof:'#69586b',name:'FORGE'},
+  {x:297,y:230,w:102,h:79,wall:'#e0c399',roof:'#a05d51',name:'HILL HOUSE'},
+  {x:450,y:320,w:108,h:109,wall:'#d9b18a',roof:'#6d7c8b',name:'MARKET'},
+  {x:506,y:320,w:94,h:79,wall:'#c9b4a1',roof:'#816076',name:'INN'},
+  {x:620,y:320,w:100,h:101,wall:'#d6c19b',roof:'#9c6a4d',name:'HOME'},
+  {x:740,y:230,w:109,h:84,wall:'#b6c1a0',roof:'#586f69',name:'HERBALIST'},
+  {x:894,y:ground,w:110,h:108,wall:'#d8b888',roof:'#986b4b',name:'SCOUT POST'}
+ ];
+ for(const h of homes)drawTownHouse(h);
+ // Signpost and lanterns keep the main ground-level route readable.
+ text('OAKVALE',210-cam,ground-181,'#fff2b5','bold 20px system-ui');
+ for(const wx of [118,365,577,813,996]){
+  const x=wx-cam;if(x<-30||x>W+30)continue;
+  rect(x,ground-55,5,55,'#6d5948');rect(x-7,ground-58,19,6,'#55493b');
+  rect(x-6,ground-75,17,18,'#efc974');rect(x-3,ground-72,11,12,'#fff0ae');
+ }
+ text('UPPER TERRACE',112-cam,126,'#425c51','bold 12px system-ui');text('MARKET TERRACE',445-cam,210,'#425c51','bold 12px system-ui');text('LOWER ROAD',850-cam,410,'#425c51','bold 12px system-ui');
+ // forest transitions and trees
+ for(let x=1080;x<2640;x+=72)drawTree(x,0.75+(x%4)*.09);
+ // cave rocks
+ for(let x=2650;x<4800;x+=82){let sx=x-cam;if(sx<-70||sx>W+70)continue;ctx.fillStyle='#777e84';ctx.beginPath();ctx.ellipse(sx,ground-9,42,25,0,Math.PI,Math.PI*2);ctx.fill();ctx.fillStyle='#4c555e';ctx.beginPath();ctx.moveTo(sx-43,ground-10);ctx.lineTo(sx-20,ground-55);ctx.lineTo(sx+6,ground-18);ctx.lineTo(sx+35,ground-47);ctx.lineTo(sx+45,ground-10);ctx.fill()}
+ // Rocky Pass: wind-swept peaks, ruined watchtowers and narrow stone shelves.
+ for(let wx=4800;wx<5950;wx+=155){const x=wx-cam;if(x<-160||x>W+160)continue;ctx.fillStyle='#81919a';ctx.beginPath();ctx.moveTo(x-105,ground);ctx.lineTo(x,ground-190-(wx%3)*22);ctx.lineTo(x+120,ground);ctx.fill();ctx.fillStyle='#d5e1dc';ctx.beginPath();ctx.moveTo(x-23,ground-153-(wx%3)*22);ctx.lineTo(x,ground-190-(wx%3)*22);ctx.lineTo(x+28,ground-148-(wx%3)*22);ctx.fill()}
+ for(const wx of [4970,5480,5820]){let x=wx-cam;if(x<-70||x>W+70)continue;rect(x,ground-92,38,92,'#746e69');rect(x-5,ground-98,48,12,'#565b62');rect(x+10,ground-65,10,20,'#3b454e')}
+ // Forgotten Ruins: cracked pillars, arches and purple embers.
+ for(let wx=5960;wx<7100;wx+=135){const x=wx-cam;if(x<-100||x>W+100)continue;rect(x,ground-120-(wx%3)*13,23,120+(wx%3)*13,'#5e5c70');rect(x-8,ground-128-(wx%3)*13,39,11,'#8a8291');rect(x+3,ground-78,3,28,'#a09aa6');ctx.fillStyle='#a46ddd';ctx.beginPath();ctx.arc(x+45,ground-16,5,0,Math.PI*2);ctx.fill()}
+ text('ROCKY PASS',5020-cam,70,'#263e53','bold 18px system-ui');
+ text('FORGOTTEN RUINS',6220-cam,70,'#45305c','bold 18px system-ui');
+ // region labels
+ text('OAKVALE',100-cam,70,'#24445a','bold 18px system-ui');
+ text('WHISPERING WOODS',1320-cam,70,'#24445a','bold 18px system-ui');
+ text('OLDSTONE CAVE',2900-cam,70,'#24445a','bold 18px system-ui');
+ // entrances
+ drawDoor(1080,'Forest Entrance','#6e4b30');drawDoor(2650,'Cave Entrance','#39434d');drawDoor(4800,'Mountain Pass','#58626d');drawDoor(5950,'Ruins Entrance','#4b3e64');
+ // NPCs
+ for(const n of npcs){let x=n.x-cam;if(x<-40||x>W+40)continue;drawPerson(x,n.y-42,n.color);let nearby=Math.abs(n.x-(player.x+player.w/2))<100&&Math.abs((player.y+player.h)-n.y)<75;if(nearby)drawNpcBubble(x,n.y-58,n.name)}
+ // signs
+ signs.forEach(s=>{let x=s.x-cam;if(x<-40||x>W+40)return;rect(x-3,ground-48,6,48,'#6e4b30');rect(x-35,ground-60,90,24,'#cba76c');text(s.text,x-31,ground-44,'#332b21','10px system-ui')});
+ // chests
+ chests.forEach(c=>{let x=c.x-cam;if(x<-40||x>W+40)return;rect(x-15,ground-26,30,24,c.opened?'#8b6b4b':'#a46c36');rect(x-15,ground-26,30,6,'#e9bd59');rect(x-2,ground-19,5,8,'#f4e6a0');if(!c.opened)text('E',x-4,ground-36,'#fff2a5','bold 12px system-ui')});
+ // Secret caches are faintly glowing stones off the main route.
+ secretCaches.forEach(c=>{if(c.opened)return;let x=c.x-cam;if(x<-30||x>W+30)return;ctx.fillStyle='#bda2e8';ctx.beginPath();ctx.moveTo(x-12,ground);ctx.lineTo(x,ground-22);ctx.lineTo(x+12,ground);ctx.fill();text('E',x-4,ground-29,'#fff1ba','bold 11px system-ui')});
+ // raised platforms players can jump onto
+ mushrooms.forEach(m=>{if(m.taken)return;let x=m.x-cam;if(x<-30||x>W+30)return;ctx.fillStyle='#e7f6a0';ctx.beginPath();ctx.arc(x,ground-8,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#bd6bda';ctx.beginPath();ctx.arc(x,ground-13,8,Math.PI,Math.PI*2);ctx.fill();text('E',x-4,ground-28,'#fff2a5','bold 11px system-ui')});
+ platforms.forEach((p,idx)=>{let x=p.x-cam;if(x+p.w<0||x>W)return;
+  if(p.x<1050){rect(x,p.y,p.w,8,'#88775e');rect(x,p.y,p.w,3,'#c6e18b');}
+  else if(p.x<2650){rect(x,p.y,p.w,12,'#78583b');rect(x,p.y,p.w,5,'#a5d77a');for(let i=0;i<p.w;i+=24){rect(x+i+5,p.y+11,5,14,'#665039');rect(x+i+7,p.y+25,2,8,'#7a6346')}}
+  else {rect(x,p.y,p.w,15,p.x>=5950?'#5b536b':p.x>=4800?'#7d7d78':'#5d666e');rect(x,p.y,p.w,4,'#a3abb0');for(let i=8;i<p.w;i+=30){rect(x+i,p.y+7,17,3,'#7f8a92');rect(x+i+8,p.y+15,5,6,'#505a62')}}
+ });
+ // ground cave/forest decoration
+ for(let x=760;x<worldW;x+=170){let sx=x-cam;if(sx>0&&sx<W){rect(sx,ground-8,10,8,'#4f8d54');rect(sx+4,ground-13,5,6,'#65a85c')}}
+}
+function drawTownHouse(h){
+ const x=h.x-cam,y=h.y-h.h;if(x+h.w<-70||x>W+70)return;
+ rect(x,y,h.w,h.h,h.wall);rect(x+4,y+8,h.w-8,4,'#f3d9a5');
+ // Timber framing, layered roof shingles and a chimney.
+ rect(x+5,y+8,6,h.h-8,'#82624b');rect(x+h.w-11,y+8,6,h.h-8,'#82624b');
+ rect(x+h.w*.75,y-37,15,34,'#947f75');rect(x+h.w*.75-3,y-40,21,6,'#625b58');
+ ctx.fillStyle=h.roof;ctx.beginPath();ctx.moveTo(x-12,y+3);ctx.lineTo(x+h.w/2,y-39);ctx.lineTo(x+h.w+12,y+3);ctx.closePath();ctx.fill();
+ ctx.strokeStyle='#e8b48b';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x-8,y+2);ctx.lineTo(x+h.w/2,y-35);ctx.lineTo(x+h.w+8,y+2);ctx.stroke();
+ for(let i=0;i<4;i++)rect(x+15+i*22,y-5-i%2*4,15,2,'#ffffff33');
+ rect(x+h.w/2-13,h.y-45,26,45,'#644a39');rect(x+h.w/2-10,h.y-41,20,37,'#76513e');
+ rect(x+h.w/2+5,h.y-23,3,3,'#f1d17e');
+ for(const wx of [x+17,x+h.w-36]){
+  rect(wx,y+23,19,23,'#f4e0a1');rect(wx+3,y+26,13,17,'#86c4cf');
+  rect(wx+9,y+26,2,17,'#e7d9b7');rect(wx+2,y+33,15,2,'#e7d9b7');
+ }
+ rect(x+h.w/2-24,y+8,48,14,'#6c5545');
+ text(h.name,x+h.w/2-22,y+18,'#f9e7bd','bold 8px system-ui');
+ // Flowers, flower boxes, and low stone foundation.
+ rect(x+14,y+46,26,6,'#7a583d');rect(x+h.w-40,y+46,26,6,'#7a583d');
+ for(const fx of [x+20,x+29,x+h.w-32,x+h.w-23]){
+  rect(fx,y+43,2,5,'#4e8b50');rect(fx-2,y+41,6,4,'#e88e9a');
+ }
+ rect(x,h.y-5,h.w,5,'#887f6a');
+}
+function drawDoor(wx,label,color){let x=wx-cam;if(x<-80||x>W+80)return;rect(x-24,ground-80,48,80,color);ctx.fillStyle='#2b343d';ctx.beginPath();ctx.arc(x,ground-80,24,Math.PI,0);ctx.fill();text(label,x-42,ground-91,'#172b3c','bold 11px system-ui')}
+function drawPerson(x,y,color){rect(x-10,y+12,20,28,color);rect(x-9,y,18,17,'#edbd91');rect(x-11,y-3,22,7,'#634532');rect(x-8,y+40,7,5,'#463e3a');rect(x+2,y+40,7,5,'#463e3a')}
+function drawNpcBubble(x,y,label){
+ const caption=label+'  ·  E';ctx.font='bold 12px system-ui';const w=Math.max(70,ctx.measureText(caption).width+18),h=25;let bx=Math.max(5,Math.min(W-w-5,x-w/2)),by=y-h-8;
+ ctx.fillStyle='#ffffff';ctx.strokeStyle='#26394b';ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect(bx,by,w,h,7);ctx.fill();ctx.stroke();
+ ctx.beginPath();ctx.moveTo(x-5,by+h);ctx.lineTo(x+2,by+h);ctx.lineTo(x,by+h+7);ctx.closePath();ctx.fillStyle='#ffffff';ctx.fill();ctx.strokeStyle='#26394b';ctx.beginPath();ctx.moveTo(x-5,by+h);ctx.lineTo(x,by+h+7);ctx.lineTo(x+2,by+h);ctx.stroke();
+ ctx.fillStyle='#1e2b38';ctx.textAlign='center';ctx.fillText(caption,bx+w/2,by+16.5);ctx.textAlign='left';
+}
+function drawPlayer(){
+ let x=player.x-cam,y=player.y;
+ ctx.fillStyle='#18344a55';ctx.beginPath();ctx.ellipse(x+14,ground+2,22,5,0,0,Math.PI*2);ctx.fill();
+ const body=player.class==='ranger'?'#3b9b69':player.class==='mage'?'#8d65c7':'#346fbb';
+ rect(x+5,y+17,19,22,body);rect(x+7,y+4,16,17,'#f0bd8e');
+ if(player.class==='mage'){rect(x+3,y-5,24,9,'#493d86');rect(x+9,y-10,14,8,'#7866c7');rect(x+7,y+39,6,9,'#344052');rect(x+18,y+39,6,9,'#344052')}
+ else if(player.class==='ranger'){rect(x+5,y-2,21,7,'#614a2f');rect(x+5,y+39,6,9,'#344052');rect(x+18,y+39,6,9,'#344052');ctx.strokeStyle='#e4d4a4';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x+(player.face>0?25:3),y+24,11,-1.3,1.3);ctx.stroke()}
+ else {rect(x+5,y,20,7,'#4d3326');rect(x+8,y+39,6,9,'#344052');rect(x+18,y+39,6,9,'#344052')}
+ rect(x+(player.face>0?18:9),y+10,3,3,'#243143');
+ if(player.blocking||player.guardTimer>0){ctx.strokeStyle=player.class==='mage'?'#8fe9ff':player.class==='ranger'?'#b4f4c8':'#b7d5df';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(x+14,y+25,23,28,0,0,Math.PI*2);ctx.stroke()}
+ if(player.attack>0&&player.class==='fighter'){let sx=x+(player.face>0?24:-28);rect(sx,y+18,34,5,'#d9eaf4');rect(sx+(player.face>0?24:0),y+10,5,20,'#fff0a0')}
+ if(player.special>0&&player.class==='fighter'){ctx.strokeStyle='#fff1a0';ctx.lineWidth=5;ctx.beginPath();ctx.arc(x+14,y+25,39,-1.2,1.2);ctx.stroke()}
+}
+function drawProjectile(p){let x=p.x-cam,y=p.y;if(x<-40||x>W+40)return;
+ if(p.kind==='arrow'){ctx.strokeStyle='#6e4b2d';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-p.dir*9,y);ctx.lineTo(x+p.dir*10,y);ctx.stroke();ctx.fillStyle='#d9e7e8';ctx.beginPath();ctx.moveTo(x+p.dir*12,y);ctx.lineTo(x+p.dir*5,y-4);ctx.lineTo(x+p.dir*5,y+4);ctx.fill();}
+ else if(p.kind==='ice'){ctx.fillStyle='#8eeaff';ctx.strokeStyle='#e4ffff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+8*p.dir,y);ctx.lineTo(x,y+10);ctx.lineTo(x-8*p.dir,y);ctx.closePath();ctx.fill();ctx.stroke()}
+ else {ctx.fillStyle='#8b8cff';ctx.beginPath();ctx.arc(x,y,7,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d9d7ff';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x-2*p.dir,y-2,2,0,Math.PI*2);ctx.fill()}
+}
+function drawEnemy(e){
+ if(!e.alive)return;let x=e.x-cam,y=e.y;if(x<-80||x>W+80)return;if(e.frozen>0){ctx.fillStyle='#8deaff66';ctx.fillRect(x-4,y-5,e.w+8,e.h+10);ctx.strokeStyle='#c9f8ff';ctx.lineWidth=2;ctx.strokeRect(x-4,y-5,e.w+8,e.h+10)}
+ if(e.type==='slime'||e.type==='stone'){ctx.fillStyle=e.type==='slime'?'#5bd17c':'#8d9ba7';ctx.beginPath();ctx.ellipse(x+e.w/2,y+e.h/2,e.w/2,e.h/2,0,Math.PI,Math.PI*2);ctx.lineTo(x+e.w,y+e.h);ctx.quadraticCurveTo(x+e.w/2,y+e.h+5,x,y+e.h);ctx.fill();rect(x+8,y+10,4,4,'#183746');rect(x+e.w-12,y+10,4,4,'#183746')}
+ else if(e.type==='bat'){ctx.fillStyle='#56456f';ctx.beginPath();ctx.moveTo(x+15,y+10);ctx.lineTo(x,y);ctx.lineTo(x+4,y+17);ctx.lineTo(x+15,y+12);ctx.lineTo(x+27,y+17);ctx.lineTo(x+30,y);ctx.fill();rect(x+12,y+5,7,10,'#766291')}
+ else if(e.type==='mushroom'){rect(x+7,y+12,17,22,'#e6d7b5');ctx.fillStyle='#d95c58';ctx.beginPath();ctx.ellipse(x+15,y+12,16,11,0,Math.PI,Math.PI*2);ctx.fill();rect(x+10,y+10,3,3,'#fff2d2')}
+ else {const shade=e.type==='warden'?'#665178':e.type==='sentinel'?'#777a7d':'#77828d';rect(x+6,y+15,e.w-12,e.h-15,shade);rect(x+2,y+3,e.w-4,22,e.type==='warden'?'#4a385d':'#687782');rect(x+12,y+10,5,5,e.type==='warden'?'#ed7aff':'#ffdb75');rect(x+e.w-17,y+10,5,5,e.type==='warden'?'#ed7aff':'#ffdb75');if(e.type==='warden'){rect(x+e.w/2-3,y-16,6,20,'#d3a8ef');rect(x+e.w/2-15,y-8,30,6,'#b88cda')}}
+ // hp bar
+ rect(x,y-9,e.w,4,'#572e3a');rect(x,y-9,e.w*Math.max(0,e.hp/e.max),4,'#f26b6b');
+}
+function update(dt){
+ if(!gameStarted){updateUI();return}
+ saveClock+=dt;if(saveClock>=8){saveClock=0;saveGame()}
+ if(journalOpen||gearOpen||pauseOpen||dialog){updateUI();return}
+ const left=keys.a||keys.arrowleft,right=keys.d||keys.arrowright;
+ player.vx=0;if(left){player.vx=-190;player.face=-1}if(right){player.vx=190;player.face=1}
+ if(player.attack>0)player.attack-=dt;if(player.special>0)player.special-=dt;if(player.invuln>0)player.invuln-=dt;
+ if(player.shotCooldown>0){player.shotCooldown=Math.max(0,player.shotCooldown-dt);if(player.shotCooldown===0&&player.class==='ranger')player.rangerShots=0}if(player.dropTimer>0)player.dropTimer-=dt;if(player.specialCooldown>0)player.specialCooldown-=dt;if(player.guardCooldown>0)player.guardCooldown-=dt;if(player.guardTimer>0)player.guardTimer-=dt;
+ player.blocking=player.class==='fighter'&&!!keys.k; if(player.class!=='fighter'&&keys.k&&player.guardCooldown<=0){player.guardTimer=.55;player.guardCooldown=2.2;player.invuln=Math.max(player.invuln,.45)}
+ player.x+=player.vx*dt;player.x=Math.max(8,Math.min(worldW-player.w,player.x));if(player.x>5950&&!story.ruinKey){player.x=5945;if(player.vx>0)toast('The ruin gate is sealed. Defeat the pass sentinel to find its key.')}
+ const oldBottom=player.y+player.h;
+ player.vy+=700*dt;player.y+=player.vy*dt;
+ let landed=false;
+ // Land on a raised platform only while falling through its top surface.
+ if(player.vy>=0&&player.dropTimer<=0){
+  for(const p of platforms){
+   const overlaps=player.x+player.w>p.x+4&&player.x<p.x+p.w-4;
+   if(overlaps&&oldBottom<=p.y+2&&player.y+player.h>=p.y){player.y=p.y-player.h;player.vy=0;landed=true;break}
+  }
+ }
+ if(player.y+player.h>=ground){player.y=ground-player.h;player.vy=0;landed=true}
+ // Defeated monsters return after a short delay, making each area replayable.
+ for(const e of enemies){
+  if(!e.alive){if((e.type==='golem'&&story.clue)||(e.type==='sentinel'&&story.passCleared)||(e.type==='warden'&&story.ruinsCleared))continue;if(e.respawn>0){e.respawn-=dt;if(e.respawn<=0){e.alive=true;e.hp=e.max;e.x=e.spawnX;e.y=e.spawnY;e.hit=0;e.frozen=0;toast((e.type==='golem'?'The cave guardian':e.type==='sentinel'?'The pass sentinel':e.type==='warden'?'The Hollow Warden':'A monster')+' has respawned.')}}continue}
+  if(e.frozen>0){e.frozen=Math.max(0,e.frozen-dt);e.hit=Math.max(0,e.hit-dt);continue}
+  if(e.type==='bat'){e.x+=Math.sin(performance.now()/400+e.x)*18*dt;e.y=(e.spawnY||ground-130)+Math.sin(performance.now()/300+e.x)*10}
+  else if(e.platformIndex!==undefined){const p=platforms[e.platformIndex];e.y=p.y-e.h;if(Math.abs(player.x-e.x)<250){e.dir=player.x<e.x?-1:1;e.x+=e.dir*(e.boss?25:32)*dt}else{e.x+=e.dir*12*dt}if(e.x<p.x){e.x=p.x;e.dir=1}if(e.x+e.w>p.x+p.w){e.x=p.x+p.w-e.w;e.dir=-1}}
+  else if(Math.abs(player.x-e.x)<250){e.dir=player.x<e.x?-1:1;e.x+=e.dir*(e.boss?25:32)*dt}
+  else {e.x+=e.dir*12*dt;if(e.x<e.homeMin||e.x>e.homeMax)e.dir*=-1}
+  if(e.platformIndex===undefined)e.x=Math.max(1100,Math.min(worldW-e.w,e.x));
+  e.hit=Math.max(0,e.hit-dt);
+  if(Math.abs(player.x-e.x)<e.w+player.w/2&&Math.abs(player.y-e.y)<45&&e.hit<=0){
+   e.hit=1.0;if(!player.blocking&&player.guardTimer<=0&&player.invuln<=0){let dmg=e.type==='warden'?22:e.type==='sentinel'?19:e.boss?17:7;dmg=Math.max(1,dmg-gearStats().def);if(player.class==='fighter'&&skillTier()>=2)dmg=Math.ceil(dmg*.7);player.hp=Math.max(0,player.hp-dmg);player.invuln=.6;toast('Hit for '+dmg+' damage');if(player.hp<=0){player.hp=player.maxhp;player.x=110;player.y=230-player.h;player.gold=Math.max(0,player.gold-3);toast('You wake up at the inn. Lost 3 gold.')}}
+  }
+ }
+ // Update ranged projectiles and resolve each hit once.
+ for(let i=projectiles.length-1;i>=0;i--){const p=projectiles[i];p.x+=p.vx*dt;p.life-=dt;let removed=p.life<=0||p.x<0||p.x>worldW;
+  if(!removed){for(const e of enemies){if(!e.alive)continue;
+   const nearX=p.x>=e.x-5&&p.x<=e.x+e.w+5;const nearY=Math.abs(p.y-(e.y+e.h/2))<Math.max(13,e.h*.45);
+   if(nearX&&nearY){e.hp-=p.damage;e.hit=Math.max(e.hit,.25);if(p.kind==='ice'){e.frozen=skillTier()>=2?4.3:3.2;if(skillTier()>=3){for(const nearby of enemies){if(nearby.alive&&nearby!==e&&Math.abs(nearby.x-e.x)<90&&Math.abs(nearby.y-e.y)<90){nearby.frozen=3.2;nearby.hp-=p.damage*.5;if(nearby.hp<=0)killEnemy(nearby)}}}}if(e.hp<=0)killEnemy(e);removed=true;toast(p.kind==='ice'?'Ice spell! Enemy frozen.':p.kind==='arrow'?'Arrow hit!':'Magic missile hit!');break;}
+  }}if(removed)projectiles.splice(i,1);
+ }
+ cam=Math.max(0,Math.min(worldW-W,player.x-W*.38));
+ updateUI();
+}
+function attack(special=false){
+ if(dialog||!gameStarted)return;
+ if(!special&&player.class!=='fighter'&&player.shotCooldown>0)return;
+ if(special){if(player.specialCooldown>0)return;player.specialCooldown=player.class==='ranger'?2.6:player.class==='mage'?3.2:1.4;player.special=player.class==='fighter'?.9:.45}
+ else player.attack=.22;
+ if(player.class==='ranger'){
+  if(!special){player.rangerShots++;if(player.rangerShots>=3){player.shotCooldown=3;toast('Quiver reloading: 3 seconds')}}
+  const count=special?(skillTier()>=3?8:5):1;for(let i=0;i<count;i++)projectiles.push({kind:'arrow',x:player.x+player.w/2+player.face*20,y:player.y+22+(special?(i-2)*5:0),vx:player.face*(special?540:470),dir:player.face,damage:(special?combatAttack()*0.55:combatAttack()*0.6)*(skillTier()>=2?1.22:1),life:skillTier()>=1?1.95:1.45});
+  if(special)toast('Rapid Release!');return;
+ }
+ if(player.class==='mage'){
+  if(!special)player.shotCooldown=1;
+  projectiles.push({kind:special?'ice':'magic',x:player.x+player.w/2+player.face*20,y:player.y+22,vx:player.face*(special?330:390),dir:player.face,damage:(special?combatAttack()*1.2:combatAttack()*1.35)*(skillTier()>=1?1.15:1),life:1.8});if(special)toast('Ice spell cast!');return;
+ }
+ let range=special?100:58;let hit=0;
+ for(const e of enemies){if(!e.alive)continue;let dx=(e.x+e.w/2)-(player.x+player.w/2);if(Math.abs(dx)<=range&&Math.sign(dx||player.face)===player.face&&Math.abs((e.y+e.h/2)-(player.y+player.h/2))<100){e.hp-=(special?combatAttack()*(skillTier()>=3?3.1:2.3):combatAttack()*(skillTier()>=1?1.2:1));if(e.hp<=0){hit++;killEnemy(e)}}}
+ if(hit)toast('Monster defeated!');else if(special)toast('Special slash!');
+}
+function killEnemy(e){if(!e.alive)return;e.alive=false;e.hp=0;e.respawn=e.boss?25:8;const baseXP=e.boss?50:10,baseGold=e.boss?30:2;gainXP(baseXP);player.gold+=baseGold;if(e.type==='slime'&&quest.stage>=1&&quest.stage<=2)quest.slimes++;
+ if(e.type==='bat'&&quest.batsStarted&&!quest.batsDone)quest.bats++;
+
+ if(e.type==='golem'){quest.caveBoss=true;story.clue=true;toast('Ancient sigil found! Follow the trail east to Rocky Pass.')}
+ if(e.type==='sentinel'){story.passCleared=true;story.ruinKey=true;toast('Pass sentinel defeated! You recovered the Ruin Key.')}
+ if(e.type==='warden'){story.ruinsCleared=true;toast('The Hollow Warden falls! Oakvale is safe... for now.')}
+ if(e.boss&&e.type!=='golem'){gainXP(35);player.gold+=20}const loot=rollLoot(e);rewardPopup(baseXP+(e.boss&&e.type!=='golem'?35:0),baseGold+(e.boss&&e.type!=='golem'?20:0),loot)
+}
+function npcQuest(n){
+  if(n.role==='herbquest'){if(!quest.herbsStarted){quest.herbsStarted=true;say(n.name,player.mushrooms>=4?'You already have '+player.mushrooms+' moon-mushrooms in your inventory! Bring me four and I will reward you.':'The forest glows with moon-mushrooms. Please gather four for my remedies. Anything you collect is kept in your inventory, even if you found it before speaking to me.')}else if(player.mushrooms>=4&&!quest.herbsDone){quest.herbsDone=true;player.mushrooms-=4;player.gold+=25;gainXP(20);player.potions++;say(n.name,'Wonderful! I took four moon-mushrooms from your inventory. Here is 25 gold, some experience, and a health potion.')}else say(n.name,quest.herbsDone?'Thank you again for the mushrooms. The town is grateful.':'Moon-mushrooms in your inventory: '+player.mushrooms+'/4.');}
+  else if(n.role==='batquest'){if(!quest.batsStarted){quest.batsStarted=true;say(n.name,'Bats have been swooping at travelers near the forest trail. Defeat three forest bats and report back to me.')}else if(quest.bats>=3&&!quest.batsDone){quest.batsDone=true;player.gold+=25;gainXP(25);say(n.name,'That should make the road safer. Take 25 gold and experience for your work.')}else say(n.name,quest.batsDone?'The trail is much quieter now. Good work, adventurer.':'Forest bats defeated: '+quest.bats+'/3.');}
+  else if(n.role==='guide'){
+   if(quest.stage===0){quest.stage=1;say(n.name,'Welcome, adventurer! Oakvale needs your help. Travel east to Whispering Woods and defeat five slimes. Use J for your basic attack, K for defense, and L for your class special. Return to me when you are done.')}
+   else if(quest.stage===1&&quest.slimes>=5){quest.stage=2;player.gold+=20;gainXP(20);say(n.name,'Excellent work! The woods are safer already. Here are 20 gold and some experience. The cave farther east holds tougher creatures and a treasure chest.')}
+   else if(quest.stage===1)say(n.name,'The forest slimes are east of town. Defeat five and come back to me. Slimes defeated: '+quest.slimes+'/5.');
+   else if(quest.stage===2&&story.ruinsCleared)say(n.name,'You defeated the Hollow Warden! The ruins are quiet, but the Hollow King is still out there. Oakvale will remember your courage.');
+   else if(quest.stage===2&&story.passCleared)say(n.name,'The sentinel carried a ruin key. Search the Forgotten Ruins beyond Rocky Pass and confront the Hollow Warden.');
+   else if(quest.stage===2&&story.clue)say(n.name,'That sigil belonged to the Hollow King. Cross Rocky Pass east of the cave and find the sentinel guarding the old road.');
+   else if(quest.stage===2)say(n.name,'Investigate Oldstone Cave. The guardian may hold a clue to the creatures invading Oakvale.');
+   else say(n.name,'Keep exploring, adventurer. Oakvale is counting on you.');
+  } else if(n.role==='smith')say(n.name,'I sell a class-specific weapon for 20 gold. Press B while near me to buy, then I to equip.');
+  else if(n.role==='inn'){player.hp=player.maxhp;say(n.name,'Welcome to the Oakvale Inn! Rest up. Your health has been restored.')}
+  else if(n.role==='shop')say(n.name,'Health potions restore 35 HP. I can sell you one for 5 gold. Use the Shop button below.');
+  else say(n.name,'Keep your guard up out there. The woods are full of slimes, and the cave is home to something much larger.');
+}
+function interact(){
+ if(dialog){closeDialog();return}
+ const n=npcs.find(n=>Math.abs(n.x-(player.x+player.w/2))<65&&Math.abs((player.y+player.h)-n.y)<65);
+ if(n){npcMenu(n);return}
+
+ const cache=secretCaches.find(c=>!c.opened&&Math.abs(c.x-player.x)<50);if(cache){cache.opened=true;story.hiddenFound++;player.gold+=20;player.potions+=2;gainXP(25);addGear(c.x>5500?'frost-pendant':c.x>3500?'copper-ring':'leather-vest');say('Hidden Cache','You uncovered a secret stash: 20 gold, two potions and 25 EXP! ('+story.hiddenFound+'/3 secrets found)');return}
+ const mushroom=mushrooms.find(m=>Math.abs(m.x-player.x)<38&&!m.taken);
+ if(mushroom){mushroom.taken=true;player.mushrooms++;toast('Moon-mushroom added to inventory! You have '+player.mushrooms+'.');updateUI();return}
+ const chest=chests.find(c=>Math.abs(c.x-player.x)<55&&!c.opened);
+ if(chest){chest.opened=true;player.gold+=15;player.potions++;gainXP(10);if(chest.x>5000)addGear('guardian-mail');else if(chest.x>2600)addGear(player.class==='mage'?'oak-staff':player.class==='ranger'?'hunter-bow':'apprentice-blade');say('Treasure Chest','You found 15 gold, a health potion, and 10 experience!');return}
+ if(player.x>1030&&player.x<1130){say('Trail Sign','Whispering Woods stretch east from here. Watch for slimes, bats, and glowing moon-mushrooms.');return}
+ if(player.x>2600&&player.x<2700){say('Cave Sign','Oldstone Cave. Bring potions and keep your guard ready. The guardian waits deep inside.');return}
+ if(player.x>1080&&player.x<2650){toast('Whispering Woods: explore the trails and gather moon-mushrooms.');return}
+ if(player.x>=5950){toast(story.ruinKey?'Forgotten Ruins: defeat the Hollow Warden.':'The ruins are sealed. Defeat the Rocky Pass sentinel to obtain the key.');return}
+ if(player.x>=4800){toast('Rocky Pass: beware the sentinel at the far end of the trail.');return}
+ if(player.x>2650){toast(quest.caveBoss?'The cave guardian is defeated!':'Oldstone Cave: find the stone guardian farther east.');return}
+ toast('Explore town and look for people with an E above them.');
+}
+function updateUI(){
+ const className=player.class[0].toUpperCase()+player.class.slice(1);document.getElementById('level').textContent='Lv. '+player.level+' '+className;
+ const abilityText=player.class==='ranger'?'<b>J</b> bow shot (3 shots, 3s reload) · <b>K</b> evasive guard · <b>L</b> rapid release':player.class==='mage'?'<b>J</b> magic missile (1s cooldown) · <b>K</b> arcane guard · <b>L</b> ice spell':'<b>J</b> sword slash · <b>K</b> block · <b>L</b> special spin attack';document.getElementById('abilityHelp').innerHTML=abilityText;
+ document.getElementById('hp').style.width=(player.hp/player.maxhp*100)+'%';document.getElementById('hptext').textContent='HP '+player.hp+'/'+player.maxhp;
+ document.getElementById('xp').style.width=(player.level>=10?100:player.xp/xpNeeded(player.level)*100)+'%';document.getElementById('xptext').textContent=player.level>=10?'MAX LEVEL':player.xp+' / '+xpNeeded(player.level);
+ document.getElementById('gold').textContent=player.gold;
+ let q=quest.stage===0?'Talk to the Wise Guide in town.':quest.stage===1?'Defeat forest slimes: '+quest.slimes+'/5.':quest.stage===2?'Explore Oldstone Cave and find the treasure.': 'Explore the region and help Oakvale.';
+ if(quest.batsStarted&&!quest.batsDone)q+=' Scout: bats '+quest.bats+'/3. ';if(quest.herbsStarted&&!quest.herbsDone)q+=' Herbalist: mushrooms '+player.mushrooms+'/4.';if(quest.batsDone)q+=' Scout quest complete. ';if(quest.herbsDone)q+=' Herbalist quest complete. ';
+ if(quest.caveBoss)q+=' Cave guardian defeated!';if(story.clue&&!story.passCleared)q+=' Main story: defeat the Rocky Pass sentinel.';if(story.passCleared&&!story.ruinsCleared)q+=' Main story: defeat the Hollow Warden.';if(story.ruinsCleared)q+=' Hollow Warden defeated!';
+ document.getElementById('quest').textContent=q;
+ document.getElementById('inventory').textContent='Weapon: '+(itemDefs[equippedGear.weapon]?.name||'Starter Weapon')+' · Armor: '+(itemDefs[equippedGear.armor]?.name||'Simple Tunic')+' · Accessory: '+(itemDefs[equippedGear.accessory]?.name||'None')+' · '+ownedGear.length+' spare item(s) · '+player.potions+' potions · '+player.mushrooms+' mushrooms';
+}
+function draw(){
+ drawWorld();
+ enemies.forEach(drawEnemy);
+ projectiles.forEach(drawProjectile);
+ drawPlayer();
+ drawRewardPopups();
+ // location marker
+ if(player.x>=1080&&player.x<2650){rect(12,500,180,24,'#172335d9');text('WHISPERING WOODS',22,516,'#d8f3ce','bold 11px system-ui')}
+ if(player.x>=2650&&player.x<4800){rect(12,500,150,24,'#172335d9');text('OLDSTONE CAVE',22,516,'#d8e4f1','bold 11px system-ui')}
+ if(player.x>=4800&&player.x<5950){rect(12,500,150,24,'#172335d9');text('ROCKY PASS',22,516,'#f0e9dd','bold 11px system-ui')}
+ if(player.x>=5950){rect(12,500,180,24,'#172335d9');text('FORGOTTEN RUINS',22,516,'#f2d9ff','bold 11px system-ui')}
+}
+function loop(t){let dt=Math.min(.04,(t-last)/1000||0);last=t;update(dt);if(!pauseOpen)rewardFloats=rewardFloats.filter(f=>(f.life-=dt)>0);draw();if(toastTimer>0){toastTimer-=dt;if(toastTimer<=0)document.getElementById('message').style.display='none'}requestAnimationFrame(loop)}
+function usePotion(){if(player.potions>0&&player.hp<player.maxhp){player.potions--;player.hp=Math.min(player.maxhp,player.hp+35);toast('Used a health potion.')}else toast(player.potions<=0?'You have no potions.':'Your health is already full.');updateUI()}
+function shop(){const seller=npcs.find(n=>(n.role==='smith'||n.role==='shop')&&Math.abs(n.x-(player.x+player.w/2))<65&&Math.abs(n.y-(player.y+player.h))<65);if(!seller){toast('Stand near the blacksmith or item merchant and press B.');return}if(seller.role==='smith'){const id=player.class==='mage'?'oak-staff':player.class==='ranger'?'hunter-bow':'apprentice-blade';if(player.gold>=20){player.gold-=20;addGear(id);say('Blacksmith','Purchased '+itemDefs[id].name+' for 20 gold. Press I to equip it!')}else say('Blacksmith','A class weapon costs 20 gold. Defeat monsters to earn more.')}else{if(player.gold>=5){player.gold-=5;player.potions++;say('Item Merchant','One fresh health potion for 5 gold. Take care out there.')}else say('Item Merchant','A potion costs 5 gold. Defeat monsters to earn gold.')}updateUI()}
+window.addEventListener('keydown',e=>{
+ let k=e.key.toLowerCase();if([' ','arrowleft','arrowright','arrowup','arrowdown'].includes(k))e.preventDefault();
+ if(k==='escape'){e.preventDefault();if(e.repeat)return;if(pauseOpen){setPause(false)}else{closeDialog();toggleJournal(false);toggleGear(false);setPause(true)}return}
+ if(pauseOpen)return;
+ if(!gameStarted){keys[k]=true;return}
+ if(k==='q'&&!e.repeat){toggleGear(false);toggleJournal();return}
+ if(k==='i'&&!e.repeat){toggleGear();return}
+ if(journalOpen||gearOpen)return
+ if(k==='e'&&!e.repeat){interact();return}
+ if(k==='j'&&!keys.j){attack(false)}
+ if(k==='l'&&!keys.l){attack(true)}
+ if(k==='w'&&!keys.w&&!dialog&&(player.y+player.h>=ground-1||platforms.some(p=>player.x+player.w>p.x&&player.x<p.x+p.w&&Math.abs(player.y+player.h-p.y)<3)))player.vy=-350;
+ if(k==='s'&&!keys.s&&!dialog&&platforms.some(p=>player.x+player.w>p.x&&player.x<p.x+p.w&&Math.abs(player.y+player.h-p.y)<4)){player.dropTimer=.28;player.y+=3;player.vy=90;}
+
+ if(k==='h'&&!keys.h)usePotion();
+ if(k==='b'&&!keys.b)shop();
+ keys[k]=true;
+});
+window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
+canvas.addEventListener('click',()=>{canvas.focus()});
+document.getElementById('close').addEventListener('click',closeDialog);
+// Buttons accessible via simple keyboard prompts; shops use B near merchant.
+for(const e of enemies){if((e.type==='golem'&&story.clue)||(e.type==='sentinel'&&story.passCleared)||(e.type==='warden'&&story.ruinsCleared))e.alive=false;if(e.platformIndex!==undefined){const p=platforms[e.platformIndex];e.y=p.y-e.h;e.homeMin=p.x;e.homeMax=p.x+p.w-e.w} else {e.homeMin=e.x-90;e.homeMax=e.x+90}e.spawnX=e.x;e.spawnY=e.y;e.respawn=0;e.frozen=0}
+document.querySelectorAll('#classOptions button').forEach(btn=>btn.addEventListener('click',()=>{player.class=btn.dataset.class;player.maxhp=player.class==='ranger'?140:player.class==='fighter'?100:70;player.hp=player.maxhp;player.shotCooldown=0;player.rangerShots=0;gameStarted=true;document.getElementById('classSelect').style.display='none';toast(player.class[0].toUpperCase()+player.class.slice(1)+' selected. Adventure begins!');saveGame();updateUI()}));
+document.getElementById('journalButton').onclick=()=>{toggleGear(false);toggleJournal()};
+document.getElementById('gearButton').onclick=()=>toggleGear();document.getElementById('closeGear').onclick=()=>toggleGear(false);
+document.getElementById('closeJournal').onclick=()=>toggleJournal(false);
+document.getElementById('saveButton').onclick=()=>saveGame(false);
+function setPause(open){pauseOpen=open;keys={};player.vx=0;player.blocking=false;document.getElementById('pauseMenu').style.display=open?'flex':'none';document.getElementById('newConfirm').style.display='none';if(open)document.getElementById('resumeGame').focus()}
+function resetAdventure(){try{localStorage.removeItem(SAVE_KEY)}catch(err){}gameStarted=false;window.removeEventListener('pagehide',onPageHideSave);location.reload()}
+function onPageHideSave(){saveGame()}
+document.getElementById('resumeGame').onclick=()=>setPause(false);
+document.getElementById('pauseSave').onclick=()=>{saveGame(false);setPause(false)};
+document.getElementById('pauseNew').onclick=()=>{document.getElementById('newConfirm').style.display='block';document.getElementById('cancelNew').focus()};
+document.getElementById('cancelNew').onclick=()=>{document.getElementById('newConfirm').style.display='none';document.getElementById('pauseNew').focus()};
+document.getElementById('confirmNew').onclick=resetAdventure;
+document.getElementById('resetButton').onclick=()=>{closeDialog();toggleJournal(false);toggleGear(false);setPause(true);document.getElementById('pauseNew').click()};
+if(loadGame()){gameStarted=true;document.getElementById('classSelect').style.display='none';document.getElementById('saveStatus').textContent='Saved adventure restored.';toast('Welcome back! Your adventure has been loaded.')}
+window.addEventListener('pagehide',onPageHideSave);
+updateUI();requestAnimationFrame(loop);
+})();
+</script>
+</body></html>
